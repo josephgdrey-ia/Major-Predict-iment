@@ -107,6 +107,14 @@
 
         // --- 2. VIEW CONTROLLER ---
         function switchView(viewId) {
+           if (viewId === 'admin') {
+                const password = prompt("Enter the Admin Password:");
+                // Change 'strawberry' to whatever password you want!
+                if (password !== "PIMS") { 
+                    alert("Incorrect password. Nice try!");
+                    return; // Stops the code and kicks them out
+                }
+            }
             document.querySelectorAll('.view-content').forEach(el => el.classList.replace('block', 'hidden'));
             document.getElementById(`view-${viewId}`).classList.replace('hidden', 'block');
             
