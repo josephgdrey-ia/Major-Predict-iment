@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wimbledon Fantasy League</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+
+    <header class="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🌱</span>
+                <h1 class="text-xl font-black tracking-tight text-emerald-400 uppercase">Wimbledon Fantasy</h1>
+            </div>
+            <nav class="flex bg-gray-900 p-1 rounded-lg border border-gray-700">
+                <button onclick="switchView('leaderboard')" id="nav-leaderboard" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer bg-emerald-600 text-white">Leaderboard</button>
+                <button onclick="switchView('teams')" id="nav-teams" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-gray-400 hover:text-white">See Teams</button>
+                <button onclick="switchView('admin')" id="nav-admin" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-gray-400 hover:text-white">Admin Hub</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        
+        <section id="view-leaderboard" class="view-content block">
+            <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl">
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2 text-white">🏆 Standings</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-700 text-gray-400 text-sm uppercase tracking-wider">
+                                <th class="pb-3 pl-4 w-16">Rank</th>
+                                <th class="pb-3">Manager</th>
+                                <th class="pb-3 text-right pr-4">Total Points</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-rows" class="divide-y divide-gray-700/50">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-teams" class="view-content hidden">
+            <div id="teams-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                </div>
+        </section>
+
+        <section id="view-admin" class="view-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl lg:col-span-1">
+                    <h3 class="text-lg font-bold mb-4 text-white">➕ Add New Tennis Player</h3>
+                    <form id="add-player-form" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Player Name</label>
+                            <input type="text" id="new-player-name" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Gender</label>
+                            <select id="new-player-gender" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+                                <option value="Men">Men</option>
+                                <option value="Women">Women</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Draft Tier</label>
+                            <select id="new-player-tier" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500">
+                                <option value="Top 10">Top 10</option>
+                                <option value="Top 25">Top 25</option>
+                                <option value="Rest of Field">Rest of Field</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg transition-colors cursor-pointer">Save Player</button>
+                    </form>
+                </div>
+
+                <div class="bg-gray-800 rounded-2xl border border-gray-700 p-6 shadow-xl lg:col-span-2">
+                    <h3 class="text-lg font-bold mb-2 text-white">🎾 Live Match Win Tracker</h3>
+                    <p class="text-sm text-gray-400 mb-4">Click plus (+) when a tennis player wins a match. Points update automatically.</p>
+                    <div id="admin-players-list" class="divide-y divide-gray-700 max-h-[500px] overflow-y-auto pr-2">
+                        </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- 1. CONFIGURATION & INITIALIZATION ---
+        const SUPABASE_URL = "YOUR_SUPABASE_URL"; 
+        const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Global data cache to avoid redundant database calls
+        let localPlayers = [];
+        let localTeams = [];
+
+        // Progressive Point Calculator: 1st win = 1, 2nd win = 2 (Total 3), 3rd win = 3 (Total 6), etc.
+        function calculatePoints(wins) {
+            let total = 0;
+            for (let i = 1; i <= wins; i++) { total += i; }
+            return total;
+        }
+
+        // --- 2. VIEW CONTROLLER (SPA NAVIGATION) ---
+        function switchView(viewId) {
+            document.querySelectorAll('.view-content').forEach(el => el.classList.replace('block', 'hidden'));
+            document.getElementById(`view-${viewId}`).classList.replace('hidden', 'block');
+            
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('bg-emerald-600', 'text-white');
+                btn.classList.add('text-gray-400', 'hover:text-white');
+            });
+            const activeBtn = document.getElementById(`nav-${viewId}`);
+            activeBtn.classList.remove('text-gray-400', 'hover:text-white');
+            activeBtn.classList.add('bg-emerald-600', 'text-white');
+
+            // Refresh data contextually on tab switch
+            fetchCoreData().then(() => {
+                if (viewId === 'leaderboard') renderLeaderboard();
+                if (viewId === 'teams') renderTeams();
+                if (viewId === 'admin') renderAdminHub();
+            });
+        }
+
+        // --- 3. DATA FETCHING ---
+        async function fetchCoreData() {
+            const { data: players, error: pErr } = await supabase.from('players').select('*').order('name', { ascending: true });
+            const { data: teams, error: tErr } = await supabase.from('teams').select('id, owner_name, players(id, name, gender, tier, wins)');
+            
+            if (pErr || tErr) {
+                console.error("Database error:", pErr || tErr);
+                return;
+            }
+            localPlayers = players;
+            localTeams = teams;
+        }
+
+        // --- 4. DATA RENDERING ---
+        function renderLeaderboard() {
+            const standings = localTeams.map(team => {
+                const totalPoints = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
+                return { name: team.owner_name, points: totalPoints };
+            }).sort((a, b) => b.points - a.points);
+
+            const tbody = document.getElementById('leaderboard-rows');
+            if (standings.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-500">No team standings found. Setup rosters in Admin Hub.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = standings.map((team, idx) => `
+                <tr class="hover:bg-gray-700/30 transition-colors">
+                    <td class="py-4 pl-4 font-black ${idx === 0 ? 'text-amber-400 text-lg' : idx === 1 ? 'text-gray-300' : 'text-gray-500'}">${idx + 1}</td>
+                    <td class="py-4 font-bold text-white">${team.name}</td>
+                    <td class="py-4 text-right pr-4 font-black text-emerald-400">${team.points} pts</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teams-grid');
+            if (localTeams.length === 0) {
+                container.innerHTML = `<div class="p-6 text-gray-500 bg-gray-800 rounded-xl w-full text-center">No teams created yet.</div>`;
+                return;
+            }
+
+            container.innerHTML = localTeams.map(team => {
+                const teamTotal = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
+                return `
+                    <div class="bg-gray-800 rounded-2xl border border-gray-700 p-5 shadow-lg space-y-4">
+                        <div class="flex justify-between items-baseline border-b border-gray-700 pb-3">
+                            <h3 class="text-xl font-black text-white">Team ${team.owner_name}</h3>
+                            <span class="text-sm font-bold text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-md border border-emerald-800/60">${teamTotal} pts</span>
+                        </div>
+                        <div class="space-y-2.5">
+                            ${team.players.map(p => `
+                                <div class="flex justify-between items-center bg-gray-900/50 p-3 rounded-xl border border-gray-700/40">
+                                    <div>
+                                        <div class="font-bold text-gray-200">${p.name}</div>
+                                        <div class="text-xs font-semibold text-gray-400 mt-0.5 flex gap-1.5 items-center">
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-blue-950 text-blue-400 border border-blue-900' : 'bg-pink-950 text-pink-400 border border-pink-900'}">${p.gender}</span>
+                                            <span>•</span>
+                                            <span>${p.tier}</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold text-white">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
+                                        <div class="text-xs text-gray-400 font-medium">+${calculatePoints(p.wins)} pts</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAdminHub() {
+            const list = document.getElementById('admin-players-list');
+            if (localPlayers.length === 0) {
+                list.innerHTML = `<p class="py-4 text-center text-gray-500">No players found. Add players using the left panel.</p>`;
+                return;
+            }
+
+            list.innerHTML = localPlayers.map(p => {
+                // Find roster status
+                const currentOwner = localTeams.find(t => t.players.some(tp => tp.id === p.id));
+                
+                return `
+                    <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <span class="font-bold text-white text-base">${p.name}</span>
+                            <div class="flex gap-2 items-center text-xs text-gray-400 font-medium mt-0.5">
+                                <span class="${p.gender === 'Men' ? 'text-blue-400' : 'text-pink-400'} font-semibold">${p.gender}</span>
+                                <span>•</span>
+                                <span>${p.tier}</span>
+                                <span>•</span>
+                                <select onchange="assignPlayerToTeam(${p.id}, this.value)" class="bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-300 focus:outline-none">
+                                    <option value="">Unassigned</option>
+                                    ${localTeams.map(t => `<option value="${t.id}" ${currentOwner?.id === t.id ? 'selected' : ''}>Drafted by ${t.owner_name}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 justify-end">
+                            <span class="text-sm font-mono text-gray-400">Wins: <strong id="admin-win-box-${p.id}" class="text-white text-base font-bold">${p.wins}</strong></span>
+                            <div class="inline-flex rounded-lg border border-gray-700 p-0.5 bg-gray-900">
+                                <button onclick="modifyWins(${p.id}, -1)" class="px-2.5 py-1 font-black text-red-400 hover:bg-gray-800 rounded transition-colors cursor-pointer">-</button>
+                                <button onclick="modifyWins(${p.id}, 1)" class="px-2.5 py-1 font-black text-emerald-400 hover:bg-gray-800 rounded transition-colors cursor-pointer">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- 5. ADMIN INTERACTIONS / MUTATIONS ---
+        async function modifyWins(playerId, change) {
+            const winLabel = document.getElementById(`admin-win-box-${playerId}`);
+            let currentWins = parseInt(winLabel.innerText);
+            let nextWins = Math.max(0, currentWins + change);
+
+            const { error } = await supabase.from('players').update({ wins: nextWins }).eq('id', playerId);
+            if (error) {
+                alert("Database write rejected.");
+            } else {
+                winLabel.innerText = nextWins;
+                // Silently update global instance tracking to avoid layout jarring
+                let pIndex = localPlayers.findIndex(p => p.id === playerId);
+                if (pIndex !== -1) localPlayers[pIndex].wins = nextWins;
+            }
+        }
+
+        async function assignPlayerToTeam(playerId, teamIdStr) {
+            // Remove from any existing assignments first (Enforces clean 1-player-per-team restriction)
+            await supabase.from('team_rosters').delete().eq('player_id', playerId);
+
+            if (teamIdStr !== "") {
+                const teamId = parseInt(teamIdStr);
+                const { error } = await supabase.from('team_rosters').insert({ team_id: teamId, player_id: playerId });
+                if (error) alert("Draft mapping execution failed.");
+            }
+            fetchCoreData().then(() => renderAdminHub());
+        }
+
+        // Action Element: Add New Player Functionality
+        document.getElementById('add-player-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('new-player-name').value;
+            const gender = document.getElementById('new-player-gender').value;
+            const tier = document.getElementById('new-player-tier').value;
+
+            const { error } = await supabase.from('players').insert({ name, gender, tier, wins: 0 });
+            if (error) {
+                alert("Could not append player records.");
+            } else {
+                document.getElementById('add-player-form').reset();
+                fetchCoreData().then(() => renderAdminHub());
+            }
+        });
+
+        // Initialize App Ecosystem
+        fetchCoreData().then(() => renderLeaderboard());
+    </script>
+</body>
+</html>
