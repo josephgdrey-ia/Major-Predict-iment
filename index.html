@@ -42,7 +42,7 @@
                     </table>
                 </div>
             </div>
-        </section>
+        </</section>
 
         <section id="view-teams" class="view-content hidden">
             <div id="teams-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -92,20 +92,20 @@
         // --- 1. CONFIGURATION & INITIALIZATION ---
         const SUPABASE_URL = "https://frhvoqwzeipuspzvulcj.supabase.co"; 
         const SUPABASE_ANON_KEY = "sb_publishable_Y8YLRrHYwTsW1CfJbB3fUQ_RCPxqxt4";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Initializing client using a unique name to prevent global namespace scope conflicts
+        const dbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Global data cache to avoid redundant database calls
         let localPlayers = [];
         let localTeams = [];
 
-        // Progressive Point Calculator: 1st win = 1, 2nd win = 2 (Total 3), 3rd win = 3 (Total 6), etc.
         function calculatePoints(wins) {
             let total = 0;
             for (let i = 1; i <= wins; i++) { total += i; }
             return total;
         }
 
-        // --- 2. VIEW CONTROLLER (SPA NAVIGATION) ---
+        // --- 2. VIEW CONTROLLER ---
         function switchView(viewId) {
             document.querySelectorAll('.view-content').forEach(el => el.classList.replace('block', 'hidden'));
             document.getElementById(`view-${viewId}`).classList.replace('hidden', 'block');
@@ -118,7 +118,6 @@
             activeBtn.classList.remove('text-gray-400', 'hover:text-white');
             activeBtn.classList.add('bg-emerald-600', 'text-white');
 
-            // Refresh data contextually on tab switch
             fetchCoreData().then(() => {
                 if (viewId === 'leaderboard') renderLeaderboard();
                 if (viewId === 'teams') renderTeams();
@@ -128,8 +127,8 @@
 
         // --- 3. DATA FETCHING ---
         async function fetchCoreData() {
-            const { data: players, error: pErr } = await supabase.from('players').select('*').order('name', { ascending: true });
-            const { data: teams, error: tErr } = await supabase.from('teams').select('id, owner_name, players(id, name, gender, tier, wins)');
+            const { data: players, error: pErr } = await dbClient.from('players').select('*').order('name', { ascending: true });
+            const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins)');
             
             if (pErr || tErr) {
                 console.error("Database error:", pErr || tErr);
@@ -177,6 +176,7 @@
                             <span class="text-sm font-bold text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-md border border-emerald-800/60">${teamTotal} pts</span>
                         </div>
                         <div class="space-y-2.5">
+                            ${team.players.length === 0 ? '<div class="text-xs text-gray-500 italic p-2">No players drafted yet.</div>' : ''}
                             ${team.players.map(p => `
                                 <div class="flex justify-between items-center bg-gray-900/50 p-3 rounded-xl border border-gray-700/40">
                                     <div>
@@ -207,7 +207,6 @@
             }
 
             list.innerHTML = localPlayers.map(p => {
-                // Find roster status
                 const currentOwner = localTeams.find(t => t.players.some(tp => tp.id === p.id));
                 
                 return `
@@ -219,7 +218,7 @@
                                 <span>•</span>
                                 <span>${p.tier}</span>
                                 <span>•</span>
-                                <select onchange="assignPlayerToTeam(${p.id}, this.value)" class="bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-300 focus:outline-none">
+                                <select onchange="assignPlayerToTeam(${p.id}, this.value)" class="bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-xs text-gray-300 focus:outline-none cursor-pointer">
                                     <option value="">Unassigned</option>
                                     ${localTeams.map(t => `<option value="${t.id}" ${currentOwner?.id === t.id ? 'selected' : ''}>Drafted by ${t.owner_name}</option>`).join('')}
                                 </select>
@@ -237,43 +236,40 @@
             }).join('');
         }
 
-        // --- 5. ADMIN INTERACTIONS / MUTATIONS ---
+        // --- 5. ADMIN INTERACTIONS ---
         async function modifyWins(playerId, change) {
             const winLabel = document.getElementById(`admin-win-box-${playerId}`);
             let currentWins = parseInt(winLabel.innerText);
             let nextWins = Math.max(0, currentWins + change);
 
-            const { error } = await supabase.from('players').update({ wins: nextWins }).eq('id', playerId);
+            const { error } = await dbClient.from('players').update({ wins: nextWins }).eq('id', playerId);
             if (error) {
                 alert("Database write rejected.");
             } else {
                 winLabel.innerText = nextWins;
-                // Silently update global instance tracking to avoid layout jarring
                 let pIndex = localPlayers.findIndex(p => p.id === playerId);
                 if (pIndex !== -1) localPlayers[pIndex].wins = nextWins;
             }
         }
 
         async function assignPlayerToTeam(playerId, teamIdStr) {
-            // Remove from any existing assignments first (Enforces clean 1-player-per-team restriction)
-            await supabase.from('team_rosters').delete().eq('player_id', playerId);
+            await dbClient.from('team_rosters').delete().eq('player_id', playerId);
 
             if (teamIdStr !== "") {
                 const teamId = parseInt(teamIdStr);
-                const { error } = await supabase.from('team_rosters').insert({ team_id: teamId, player_id: playerId });
+                const { error } = await dbClient.from('team_rosters').insert({ team_id: teamId, player_id: playerId });
                 if (error) alert("Draft mapping execution failed.");
             }
             fetchCoreData().then(() => renderAdminHub());
         }
 
-        // Action Element: Add New Player Functionality
         document.getElementById('add-player-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('new-player-name').value;
             const gender = document.getElementById('new-player-gender').value;
             const tier = document.getElementById('new-player-tier').value;
 
-            const { error } = await supabase.from('players').insert({ name, gender, tier, wins: 0 });
+            const { error } = await dbClient.from('players').insert({ name, gender, tier, wins: 0 });
             if (error) {
                 alert("Could not append player records.");
             } else {
@@ -282,7 +278,7 @@
             }
         });
 
-        // Initialize App Ecosystem
+        // Initial App Ecosystem Load
         fetchCoreData().then(() => renderLeaderboard());
     </script>
 </body>
