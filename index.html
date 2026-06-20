@@ -2,9 +2,12 @@
 <html lang="en">
 <head>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍓</text></svg>">
+    
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2312794D%22/><text y=%22.9em%22 x=%220.05em%22 font-size=%2280%22>🍓</text></svg>">
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wimbledon Fantasy League</title>
+    <title>Wimbledon Fantasy</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -60,6 +63,10 @@
                             <input type="text" id="new-player-name" required class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A3A88] focus:border-transparent transition-all">
                         </div>
                         <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Flag Emoji</label>
+                            <input type="text" id="new-player-flag" placeholder="e.g. 🇬🇧" required class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A3A88] focus:border-transparent transition-all">
+                        </div>
+                        <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Gender</label>
                             <select id="new-player-gender" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A3A88] focus:border-transparent transition-all">
                                 <option value="Men">Men</option>
@@ -80,7 +87,7 @@
 
                 <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm lg:col-span-2">
                     <h3 class="text-lg font-black mb-1 text-[#12794D]">🎾 Live Match Win Tracker</h3>
-                    <p class="text-sm text-gray-500 mb-4 border-b border-gray-100 pb-4">Click plus (+) when a tennis player wins a match. Points update automatically.</p>
+                    <p class="text-sm text-gray-500 mb-4 border-b border-gray-100 pb-4">Manage wins, assignments, and elimination status.</p>
                     <div id="admin-players-list" class="divide-y divide-gray-100 max-h-[500px] overflow-y-auto pr-2">
                         </div>
                 </div>
@@ -118,7 +125,6 @@
             document.querySelectorAll('.view-content').forEach(el => el.classList.replace('block', 'hidden'));
             document.getElementById(`view-${viewId}`).classList.replace('hidden', 'block');
             
-            // Adjusting button colors for the new theme
             document.querySelectorAll('nav button').forEach(btn => {
                 btn.classList.remove('bg-[#5A3A88]', 'text-white', 'shadow-sm');
                 btn.classList.add('text-white/80', 'hover:text-white');
@@ -136,8 +142,9 @@
 
         // --- 3. DATA FETCHING ---
         async function fetchCoreData() {
+            // Note: Added flag and is_out to the query
             const { data: players, error: pErr } = await dbClient.from('players').select('*').order('name', { ascending: true });
-            const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins)');
+            const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins, flag, is_out)');
             
             if (pErr || tErr) {
                 console.error("Database error:", pErr || tErr);
@@ -160,7 +167,6 @@
                 return;
             }
 
-            // 1st place gets Championship Purple, 2nd gets Green
             tbody.innerHTML = standings.map((team, idx) => `
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="py-4 pl-4 font-black text-lg ${idx === 0 ? 'text-[#5A3A88]' : idx === 1 ? 'text-[#12794D]' : 'text-gray-400'}">${idx + 1}</td>
@@ -188,18 +194,22 @@
                         <div class="space-y-2.5">
                             ${team.players.length === 0 ? '<div class="text-xs text-gray-400 italic p-2">No players drafted yet.</div>' : ''}
                             ${team.players.map(p => `
-                                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                <div class="flex justify-between items-center p-3 rounded-xl border ${p.is_out ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100'}">
                                     <div>
-                                        <div class="font-bold text-gray-800">${p.name}</div>
-                                        <div class="text-xs font-semibold text-gray-500 mt-0.5 flex gap-1.5 items-center">
+                                        <div class="font-bold flex items-center gap-1.5 ${p.is_out ? 'text-red-800 line-through opacity-80' : 'text-gray-800'}">
+                                            <span>${p.flag || '🏳️'}</span> 
+                                            <span>${p.name}</span>
+                                            ${p.is_out ? '<span class="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded font-black no-underline ml-1">OUT</span>' : ''}
+                                        </div>
+                                        <div class="text-xs font-semibold mt-0.5 flex gap-1.5 items-center ${p.is_out ? 'text-red-700/60' : 'text-gray-500'}">
                                             <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-purple-50 text-[#5A3A88] border border-purple-100'}">${p.gender}</span>
                                             <span>•</span>
                                             <span>${p.tier}</span>
                                         </div>
                                     </div>
-                                    <div class="text-right">
-                                        <div class="text-sm font-bold text-gray-800">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
-                                        <div class="text-xs text-[#12794D] font-bold">+${calculatePoints(p.wins)} pts</div>
+                                    <div class="text-right ${p.is_out ? 'opacity-80' : ''}">
+                                        <div class="text-sm font-bold ${p.is_out ? 'text-red-800' : 'text-gray-800'}">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
+                                        <div class="text-xs font-bold ${p.is_out ? 'text-red-700' : 'text-[#12794D]'}">+${calculatePoints(p.wins)} pts</div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -220,9 +230,15 @@
                 const currentOwner = localTeams.find(t => t.players.some(tp => tp.id === p.id));
                 
                 return `
-                    <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50 px-2 rounded-lg transition-colors -mx-2">
+                    <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${p.is_out ? 'bg-red-50/50' : 'hover:bg-gray-50'} px-2 rounded-lg transition-colors -mx-2">
                         <div>
-                            <span class="font-bold text-gray-800 text-base">${p.name}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-gray-800 text-base">${p.flag || '🏳️'} ${p.name}</span>
+                                <label class="inline-flex items-center cursor-pointer ml-2 bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
+                                    <input type="checkbox" ${p.is_out ? 'checked' : ''} onchange="toggleOutStatus(${p.id}, this.checked)" class="w-3 h-3 text-red-600 rounded border-gray-300">
+                                    <span class="ml-1.5 text-[10px] font-bold ${p.is_out ? 'text-red-600' : 'text-gray-500'} uppercase tracking-wider">Out</span>
+                                </label>
+                            </div>
                             <div class="flex gap-2 items-center text-xs text-gray-500 font-medium mt-1">
                                 <span class="${p.gender === 'Men' ? 'text-blue-600' : 'text-[#5A3A88]'} font-bold">${p.gender}</span>
                                 <span>•</span>
@@ -273,13 +289,30 @@
             fetchCoreData().then(() => renderAdminHub());
         }
 
+        async function toggleOutStatus(playerId, isOut) {
+            const { error } = await dbClient.from('players').update({ is_out: isOut }).eq('id', playerId);
+            if (error) {
+                alert("Could not update elimination status.");
+            } else {
+                let pIndex = localPlayers.findIndex(p => p.id === playerId);
+                if (pIndex !== -1) localPlayers[pIndex].is_out = isOut;
+                
+                // Refresh data to ensure proper re-renders across views
+                fetchCoreData().then(() => {
+                    if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminHub();
+                    if (!document.getElementById('view-teams').classList.contains('hidden')) renderTeams();
+                });
+            }
+        }
+
         document.getElementById('add-player-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('new-player-name').value;
+            const flag = document.getElementById('new-player-flag').value;
             const gender = document.getElementById('new-player-gender').value;
             const tier = document.getElementById('new-player-tier').value;
 
-            const { error } = await dbClient.from('players').insert({ name, gender, tier, wins: 0 });
+            const { error } = await dbClient.from('players').insert({ name, flag, gender, tier, wins: 0, is_out: false });
             if (error) {
                 alert("Could not append player records.");
             } else {
