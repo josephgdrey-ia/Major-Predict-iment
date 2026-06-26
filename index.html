@@ -142,7 +142,6 @@
 
         // --- 3. DATA FETCHING ---
         async function fetchCoreData() {
-            // Note: Added flag and is_out to the query
             const { data: players, error: pErr } = await dbClient.from('players').select('*').order('name', { ascending: true });
             const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins, flag, is_out)');
             
@@ -227,8 +226,6 @@
             }
 
             list.innerHTML = localPlayers.map(p => {
-                const currentOwner = localTeams.find(t => t.players.some(tp => tp.id === p.id));
-                
                 return `
                     <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${p.is_out ? 'bg-red-50/50' : 'hover:bg-gray-50'} px-2 rounded-lg transition-colors -mx-2">
                         <div>
@@ -244,10 +241,17 @@
                                 <span>•</span>
                                 <span>${p.tier}</span>
                                 <span>•</span>
-                                <select onchange="assignPlayerToTeam(${p.id}, this.value)" class="bg-white border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-700 focus:outline-none focus:border-[#5A3A88] cursor-pointer shadow-sm">
-                                    <option value="">Unassigned</option>
-                                    ${localTeams.map(t => `<option value="${t.id}" ${currentOwner?.id === t.id ? 'selected' : ''}>Drafted by ${t.owner_name}</option>`).join('')}
-                                </select>
+                                <div class="flex flex-wrap gap-1 ml-1">
+                                    ${localTeams.map(t => {
+                                        const isDrafted = t.players.some(tp => tp.id === p.id);
+                                        return `
+                                            <label class="inline-flex items-center bg-white border border-gray-200 px-1.5 py-0.5 rounded text-[10px] cursor-pointer hover:bg-gray-50 shadow-sm transition-colors">
+                                                <input type="checkbox" onchange="toggleTeamAssignment(${p.id}, ${t.id}, this.checked)" ${isDrafted ? 'checked' : ''} class="w-3 h-3 text-[#5A3A88] rounded border-gray-300 mr-1 focus:ring-0">
+                                                <span class="text-gray-700 font-bold">${t.owner_name}</span>
+                                            </label>
+                                        `;
+                                    }).join('')}
+                                </div>
                             </div>
                         </div>
                         <div class="flex items-center gap-3 justify-end">
@@ -278,15 +282,22 @@
             }
         }
 
-        async function assignPlayerToTeam(playerId, teamIdStr) {
-            await dbClient.from('team_rosters').delete().eq('player_id', playerId);
-
-            if (teamIdStr !== "") {
-                const teamId = parseInt(teamIdStr);
+        async function toggleTeamAssignment(playerId, teamId, isAdding) {
+            if (isAdding) {
                 const { error } = await dbClient.from('team_rosters').insert({ team_id: teamId, player_id: playerId });
-                if (error) alert("Draft mapping execution failed.");
+                if (error) alert("Failed to add player to team.");
+            } else {
+                const { error } = await dbClient.from('team_rosters')
+                    .delete()
+                    .eq('team_id', teamId)
+                    .eq('player_id', playerId);
+                if (error) alert("Failed to remove player from team.");
             }
-            fetchCoreData().then(() => renderAdminHub());
+            
+            fetchCoreData().then(() => {
+                if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminHub();
+                if (!document.getElementById('view-teams').classList.contains('hidden')) renderTeams();
+            });
         }
 
         async function toggleOutStatus(playerId, isOut) {
