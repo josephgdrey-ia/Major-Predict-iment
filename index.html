@@ -19,17 +19,55 @@
                 <span class="text-2xl">🍓</span>
                 <h1 class="text-xl font-black tracking-tight text-white uppercase">Major Predict-iment <span class="font-normal opacity-80">(Wimbledon 2026)</span></h1>
             </div>
-            <nav class="flex bg-[#0d5c3a] p-1 rounded-lg border border-[#0a4a2e]">
-                <button onclick="switchView('leaderboard')" id="nav-leaderboard" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer bg-[#5A3A88] text-white shadow-sm">Leaderboard</button>
-                <button onclick="switchView('teams')" id="nav-teams" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white">See Teams</button>
-                <button onclick="switchView('admin')" id="nav-admin" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white">Admin Hub</button>
+            <nav class="flex bg-[#0d5c3a] p-1 rounded-lg border border-[#0a4a2e] overflow-x-auto max-w-full">
+                <button onclick="switchView('rules')" id="nav-rules" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer bg-[#5A3A88] text-white shadow-sm whitespace-nowrap">Rules & Draws</button>
+                <button onclick="switchView('leaderboard')" id="nav-leaderboard" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white whitespace-nowrap">Leaderboard</button>
+                <button onclick="switchView('teams')" id="nav-teams" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white whitespace-nowrap">See Teams</button>
+                <button onclick="switchView('admin')" id="nav-admin" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white whitespace-nowrap">Admin Hub</button>
             </nav>
         </div>
     </header>
 
     <main class="max-w-6xl mx-auto px-4 py-8">
         
-        <section id="view-leaderboard" class="view-content block">
+        <section id="view-rules" class="view-content block space-y-6">
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <h2 class="text-2xl font-black mb-4 flex items-center gap-2 text-[#5A3A88]">📖 How to Play & Scoring</h2>
+                <p class="text-gray-600 mb-6 leading-relaxed">
+                    Points are awarded based on cumulative match wins for the players you draft. The deeper a player goes in the tournament, the more points each subsequent win is worth.
+                </p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <ul class="space-y-2 text-sm font-medium text-gray-700">
+                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 1 Win (1 win)</span> <strong class="text-[#12794D]">+1 pt</strong></li>
+                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 2 Win (2 wins)</span> <strong class="text-[#12794D]">+2 pts (3 total)</strong></li>
+                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 3 Win (3 wins)</span> <strong class="text-[#12794D]">+3 pts (6 total)</strong></li>
+                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 4 Win (4 wins)</span> <strong class="text-[#12794D]">+4 pts (10 total)</strong></li>
+                        </ul>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <ul class="space-y-2 text-sm font-medium text-gray-700">
+                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Quarterfinal Win (5 wins)</span> <strong class="text-[#12794D]">+5 pts (15 total)</strong></li>
+                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Semifinal Win (6 wins)</span> <strong class="text-[#12794D]">+6 pts (21 total)</strong></li>
+                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Championship Win (7 wins)</span> <strong class="text-[#12794D]">+7 pts (28 total)</strong></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="text-lg font-black mb-3 text-gray-800 border-t border-gray-100 pt-6">🔗 Official Wimbledon Draws</h3>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <a href="https://www.wimbledon.com/en_GB/draws/gentlemens-singles/1" target="_blank" class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2">
+                        <span>🎾</span> Men's Singles Draw
+                    </a>
+                    <a href="https://www.wimbledon.com/en_GB/draws/ladies-singles" target="_blank" class="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2">
+                        <span>🎾</span> Women's Singles Draw
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-leaderboard" class="view-content hidden">
             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                 <h2 class="text-xl font-black mb-4 flex items-center gap-2 text-[#12794D]">🏆 Standings</h2>
                 <div class="overflow-x-auto">
@@ -42,7 +80,7 @@
                             </tr>
                         </thead>
                         <tbody id="leaderboard-rows" class="divide-y divide-gray-100">
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -50,7 +88,7 @@
 
         <section id="view-teams" class="view-content hidden">
             <div id="teams-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                </div>
+            </div>
         </section>
 
         <section id="view-admin" class="view-content hidden space-y-6">
@@ -89,7 +127,7 @@
                     <h3 class="text-lg font-black mb-1 text-[#12794D]">🎾 Live Match Win Tracker</h3>
                     <p class="text-sm text-gray-500 mb-4 border-b border-gray-100 pb-4">Manage wins, assignments, and elimination status.</p>
                     <div id="admin-players-list" class="divide-y divide-gray-100 max-h-[500px] overflow-y-auto pr-2">
-                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -112,7 +150,7 @@
             return total;
         }
 
-        // --- 2. VIEW CONTROLLER (WITH PASSWORD) ---
+        // --- 2. VIEW CONTROLLER ---
         function switchView(viewId) {
             if (viewId === 'admin') {
                 const password = prompt("Enter the Admin Password:");
@@ -122,8 +160,12 @@
                 }
             }
 
-            document.querySelectorAll('.view-content').forEach(el => el.classList.replace('block', 'hidden'));
-            document.getElementById(`view-${viewId}`).classList.replace('hidden', 'block');
+            document.querySelectorAll('.view-content').forEach(el => {
+                el.classList.remove('block');
+                el.classList.add('hidden');
+            });
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            document.getElementById(`view-${viewId}`).classList.add('block');
             
             document.querySelectorAll('nav button').forEach(btn => {
                 btn.classList.remove('bg-[#5A3A88]', 'text-white', 'shadow-sm');
@@ -133,14 +175,33 @@
             activeBtn.classList.remove('text-white/80', 'hover:text-white');
             activeBtn.classList.add('bg-[#5A3A88]', 'text-white', 'shadow-sm');
 
-            fetchCoreData().then(() => {
-                if (viewId === 'leaderboard') renderLeaderboard();
-                if (viewId === 'teams') renderTeams();
-                if (viewId === 'admin') renderAdminHub();
-            });
+            // Only fetch dynamically updated data if we navigate to a data-driven view
+            if (viewId !== 'rules') {
+                fetchCoreData().then(() => {
+                    if (viewId === 'leaderboard') renderLeaderboard();
+                    if (viewId === 'teams') renderTeams();
+                    if (viewId === 'admin') renderAdminHub();
+                });
+            }
         }
 
-        // --- 3. DATA FETCHING ---
+        // --- 3. UI TOGGLES ---
+        function toggleTeam(teamId) {
+            const contentDiv = document.getElementById(`content-team-${teamId}`);
+            const icon = document.getElementById(`icon-team-${teamId}`);
+            
+            if (contentDiv.classList.contains('hidden')) {
+                contentDiv.classList.remove('hidden');
+                contentDiv.classList.add('block');
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                contentDiv.classList.remove('block');
+                contentDiv.classList.add('hidden');
+                icon.style.transform = 'rotate(-90deg)';
+            }
+        }
+
+        // --- 4. DATA FETCHING ---
         async function fetchCoreData() {
             const { data: players, error: pErr } = await dbClient.from('players').select('*').order('name', { ascending: true });
             const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins, flag, is_out)');
@@ -153,7 +214,7 @@
             localTeams = teams;
         }
 
-        // --- 4. DATA RENDERING ---
+        // --- 5. DATA RENDERING ---
         function renderLeaderboard() {
             const standings = localTeams.map(team => {
                 const totalPoints = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
@@ -182,36 +243,21 @@
                 return;
             }
 
-            const tierRank = { "Top 10": 1, "Top 25": 2, "Rest of Field": 3 };
-            const genderRank = { "Women": 1, "Men": 2 };
-
             container.innerHTML = localTeams.map(team => {
                 const teamTotal = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
-                
-                // Create a sorted copy of the players array
-                const sortedPlayers = [...team.players].sort((a, b) => {
-                    const tierA = tierRank[a.tier] || 99;
-                    const tierB = tierRank[b.tier] || 99;
-                    
-                    if (tierA !== tierB) {
-                        return tierA - tierB;
-                    }
-                    
-                    const genderA = genderRank[a.gender] || 99;
-                    const genderB = genderRank[b.gender] || 99;
-                    
-                    return genderA - genderB;
-                });
-
                 return `
-                    <div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm space-y-4 hover:shadow-md transition-shadow">
-                        <div class="flex justify-between items-baseline border-b border-gray-100 pb-3">
-                            <h3 class="text-xl font-black text-gray-800">Team ${team.owner_name}</h3>
+                    <div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-3 cursor-pointer select-none group" onclick="toggleTeam('${team.id}')">
+                            <h3 class="text-xl font-black text-gray-800 flex items-center gap-2 group-hover:text-[#5A3A88] transition-colors">
+                                <span id="icon-team-${team.id}" class="text-[10px] text-gray-400 transition-transform duration-200 transform">▼</span>
+                                Team ${team.owner_name}
+                            </h3>
                             <span class="text-sm font-bold text-[#12794D] bg-green-50 px-3 py-1 rounded-full border border-green-200">${teamTotal} pts</span>
                         </div>
-                        <div class="space-y-2.5">
-                            ${sortedPlayers.length === 0 ? '<div class="text-xs text-gray-400 italic p-2">No players drafted yet.</div>' : ''}
-                            ${sortedPlayers.map(p => `
+                        
+                        <div id="content-team-${team.id}" class="space-y-2.5 mt-4 block transition-all duration-300 origin-top">
+                            ${team.players.length === 0 ? '<div class="text-xs text-gray-400 italic p-2 text-center">No players drafted yet.</div>' : ''}
+                            ${team.players.map(p => `
                                 <div class="flex justify-between items-center p-3 rounded-xl border ${p.is_out ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100'}">
                                     <div>
                                         <div class="font-bold flex items-center gap-1.5 ${p.is_out ? 'text-red-800 line-through opacity-80' : 'text-gray-800'}">
@@ -285,7 +331,7 @@
             }).join('');
         }
 
-        // --- 5. ADMIN INTERACTIONS ---
+        // --- 6. ADMIN INTERACTIONS ---
         async function modifyWins(playerId, change) {
             const winLabel = document.getElementById(`admin-win-box-${playerId}`);
             let currentWins = parseInt(winLabel.innerText);
@@ -351,8 +397,9 @@
             }
         });
 
-        // Initial App Ecosystem Load
-        fetchCoreData().then(() => renderLeaderboard());
+        // Initialize on Load (Defaults to the Rules View)
+        switchView('rules');
+
     </script>
 </body>
 </html>
