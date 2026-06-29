@@ -76,6 +76,7 @@
                             <tr class="border-b border-gray-200 text-gray-500 text-sm uppercase tracking-wider font-bold">
                                 <th class="pb-3 pl-4 w-16">Rank</th>
                                 <th class="pb-3">Manager</th>
+                                <th class="pb-3 text-center">Remaining</th>
                                 <th class="pb-3 text-right pr-4">Total Points</th>
                             </tr>
                         </thead>
@@ -218,12 +219,19 @@
         function renderLeaderboard() {
             const standings = localTeams.map(team => {
                 const totalPoints = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
-                return { name: team.owner_name, points: totalPoints };
+                const remainingPlayers = team.players.filter(p => !p.is_out).length;
+                const totalPlayers = team.players.length;
+                return { 
+                    name: team.owner_name, 
+                    points: totalPoints,
+                    remaining: remainingPlayers,
+                    total: totalPlayers
+                };
             }).sort((a, b) => b.points - a.points);
 
             const tbody = document.getElementById('leaderboard-rows');
             if (standings.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-500">No team standings found. Setup rosters in Admin Hub.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">No team standings found. Setup rosters in Admin Hub.</td></tr>`;
                 return;
             }
 
@@ -231,6 +239,11 @@
                 <tr class="hover:bg-gray-50 transition-colors">
                     <td class="py-4 pl-4 font-black text-lg ${idx === 0 ? 'text-[#5A3A88]' : idx === 1 ? 'text-[#12794D]' : 'text-gray-400'}">${idx + 1}</td>
                     <td class="py-4 font-bold text-gray-800">${team.name}</td>
+                    <td class="py-4 text-center">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${team.remaining === 0 ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-700'}">
+                            ${team.remaining} / ${team.total}
+                        </span>
+                    </td>
                     <td class="py-4 text-right pr-4 font-black text-[#12794D]">${team.points} pts</td>
                 </tr>
             `).join('');
