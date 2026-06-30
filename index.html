@@ -3,7 +3,7 @@
 <head>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍓</text></svg>">
     
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2312794D%22/><text y=%22.9em%22 x=%220.05em%22 font-size=%2280%22>🍓</text></svg>">
+    <link class="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2312794D%22/><text y=%22.9em%22 x=%220.05em%22 font-size=%2280%22>🍓</text></svg>">
     
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -205,7 +205,7 @@
         // --- 4. DATA FETCHING ---
         async function fetchCoreData() {
             const { data: players, error: pErr } = await dbClient.from('players').select('*').order('name', { ascending: true });
-            const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins, flag, is_out)');
+            const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins, flag, is_out, is_through)');
             
             if (pErr || tErr) {
                 console.error("Database error:", pErr || tErr);
@@ -227,7 +227,7 @@
                     remaining: remainingPlayers,
                     total: totalPlayers
                 };
-            }).sort((a, b) => b.points - a.points);
+            }).sort((a, b) => (b.points - a.points) || (b.remaining - a.remaining)); // Order by score, then by remaining players
 
             const tbody = document.getElementById('leaderboard-rows');
             if (standings.length === 0) {
@@ -283,26 +283,39 @@
                         
                         <div id="content-team-${team.id}" class="space-y-2.5 mt-4 block transition-all duration-300 origin-top">
                             ${sortedPlayers.length === 0 ? '<div class="text-xs text-gray-400 italic p-2 text-center">No players drafted yet.</div>' : ''}
-                            ${sortedPlayers.map(p => `
-                                <div class="flex justify-between items-center p-3 rounded-xl border ${p.is_out ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100'}">
-                                    <div>
-                                        <div class="font-bold flex items-center gap-1.5 ${p.is_out ? 'text-red-800 line-through opacity-80' : 'text-gray-800'}">
-                                            <span>${p.flag || '🏳️'}</span> 
-                                            <span>${p.name}</span>
-                                            ${p.is_out ? '<span class="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded font-black no-underline ml-1">OUT</span>' : ''}
+                            ${sortedPlayers.map(p => {
+                                // Conditional styling for active, through to next round, or eliminated players
+                                let cardBgClass = 'bg-gray-50 border-gray-100';
+                                if (p.is_out) {
+                                    cardBgClass = 'bg-red-50 border-red-200';
+                                } else if (p.is_through) {
+                                    cardBgClass = 'bg-green-50 border-green-200';
+                                }
+
+                                let nameStyleClass = p.is_out ? 'text-red-800 line-through opacity-80' : p.is_through ? 'text-green-900 font-extrabold' : 'text-gray-800';
+
+                                return `
+                                    <div class="flex justify-between items-center p-3 rounded-xl border ${cardBgClass}">
+                                        <div>
+                                            <div class="font-bold flex items-center gap-1.5 ${nameStyleClass}">
+                                                <span>${p.flag || '🏳️'}</span> 
+                                                <span>${p.name}</span>
+                                                ${p.is_out ? '<span class="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded font-black no-underline ml-1">OUT</span>' : ''}
+                                                ${(!p.is_out && p.is_through) ? '<span class="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-black ml-1">THROUGH</span>' : ''}
+                                            </div>
+                                            <div class="text-xs font-semibold mt-0.5 flex gap-1.5 items-center ${p.is_out ? 'text-red-700/60' : p.is_through ? 'text-green-700/80' : 'text-gray-500'}">
+                                                <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-purple-50 text-[#5A3A88] border border-purple-100'}">${p.gender}</span>
+                                                <span>•</span>
+                                                <span>${p.tier}</span>
+                                            </div>
                                         </div>
-                                        <div class="text-xs font-semibold mt-0.5 flex gap-1.5 items-center ${p.is_out ? 'text-red-700/60' : 'text-gray-500'}">
-                                            <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-purple-50 text-[#5A3A88] border border-purple-100'}">${p.gender}</span>
-                                            <span>•</span>
-                                            <span>${p.tier}</span>
+                                        <div class="text-right ${p.is_out ? 'opacity-80' : ''}">
+                                            <div class="text-sm font-bold ${p.is_out ? 'text-red-800' : p.is_through ? 'text-green-800' : 'text-gray-800'}">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
+                                            <div class="text-xs font-bold ${p.is_out ? 'text-red-700' : p.is_through ? 'text-green-700' : 'text-[#12794D]'}">+${calculatePoints(p.wins)} pts</div>
                                         </div>
                                     </div>
-                                    <div class="text-right ${p.is_out ? 'opacity-80' : ''}">
-                                        <div class="text-sm font-bold ${p.is_out ? 'text-red-800' : 'text-gray-800'}">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
-                                        <div class="text-xs font-bold ${p.is_out ? 'text-red-700' : 'text-[#12794D]'}">+${calculatePoints(p.wins)} pts</div>
-                                    </div>
-                                </div>
-                            `).join('')}
+                                `;
+                            }).join('')}
                         </div>
                     </div>
                 `;
@@ -318,14 +331,20 @@
 
             list.innerHTML = localPlayers.map(p => {
                 return `
-                    <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${p.is_out ? 'bg-red-50/50' : 'hover:bg-gray-50'} px-2 rounded-lg transition-colors -mx-2">
+                    <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${p.is_out ? 'bg-red-50/50' : p.is_through ? 'bg-green-50/20' : 'hover:bg-gray-50'} px-2 rounded-lg transition-colors -mx-2">
                         <div>
                             <div class="flex items-center gap-2">
                                 <span class="font-bold text-gray-800 text-base">${p.flag || '🏳️'} ${p.name}</span>
-                                <label class="inline-flex items-center cursor-pointer ml-2 bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
-                                    <input type="checkbox" ${p.is_out ? 'checked' : ''} onchange="toggleOutStatus(${p.id}, this.checked)" class="w-3 h-3 text-red-600 rounded border-gray-300">
-                                    <span class="ml-1.5 text-[10px] font-bold ${p.is_out ? 'text-red-600' : 'text-gray-500'} uppercase tracking-wider">Out</span>
-                                </label>
+                                <div class="flex items-center gap-1.5 ml-1">
+                                    <label class="inline-flex items-center cursor-pointer bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
+                                        <input type="checkbox" ${p.is_out ? 'checked' : ''} onchange="toggleOutStatus(${p.id}, this.checked)" class="w-3 h-3 text-red-600 rounded border-gray-300">
+                                        <span class="ml-1.5 text-[10px] font-bold ${p.is_out ? 'text-red-600' : 'text-gray-500'} uppercase tracking-wider">Out</span>
+                                    </label>
+                                    <label class="inline-flex items-center cursor-pointer bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
+                                        <input type="checkbox" ${p.is_through ? 'checked' : ''} onchange="toggleThroughStatus(${p.id}, this.checked)" class="w-3 h-3 text-green-600 rounded border-gray-300">
+                                        <span class="ml-1.5 text-[10px] font-bold ${p.is_through ? 'text-green-600' : 'text-gray-500'} uppercase tracking-wider">Through</span>
+                                    </label>
+                                </div>
                             </div>
                             <div class="flex gap-2 items-center text-xs text-gray-500 font-medium mt-1">
                                 <span class="${p.gender === 'Men' ? 'text-blue-600' : 'text-[#5A3A88]'} font-bold">${p.gender}</span>
@@ -399,7 +418,21 @@
                 let pIndex = localPlayers.findIndex(p => p.id === playerId);
                 if (pIndex !== -1) localPlayers[pIndex].is_out = isOut;
                 
-                // Refresh data to ensure proper re-renders across views
+                fetchCoreData().then(() => {
+                    if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminHub();
+                    if (!document.getElementById('view-teams').classList.contains('hidden')) renderTeams();
+                });
+            }
+        }
+
+        async function toggleThroughStatus(playerId, isThrough) {
+            const { error } = await dbClient.from('players').update({ is_through: isThrough }).eq('id', playerId);
+            if (error) {
+                alert("Could not update advancement status.");
+            } else {
+                let pIndex = localPlayers.findIndex(p => p.id === playerId);
+                if (pIndex !== -1) localPlayers[pIndex].is_through = isThrough;
+                
                 fetchCoreData().then(() => {
                     if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminHub();
                     if (!document.getElementById('view-teams').classList.contains('hidden')) renderTeams();
@@ -414,7 +447,7 @@
             const gender = document.getElementById('new-player-gender').value;
             const tier = document.getElementById('new-player-tier').value;
 
-            const { error } = await dbClient.from('players').insert({ name, flag, gender, tier, wins: 0, is_out: false });
+            const { error } = await dbClient.from('players').insert({ name, flag, gender, tier, wins: 0, is_out: false, is_through: false });
             if (error) {
                 alert("Could not append player records.");
             } else {
