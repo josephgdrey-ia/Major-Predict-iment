@@ -204,8 +204,8 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Draft Tier</label>
                             <select id="new-player-tier" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1560BD] focus:border-transparent transition-all">
                                 <option value="Top 5">Top 5</option>
-                                <option value="5-15">5-15</option>
-                                <option value="15-25">15-25</option>
+                                <option value="6-15">6-15</option>
+                                <option value="16-25">16-25</option>
                                 <option value="Rest of Field">Rest of Field</option>
                             </select>
                         </div>
@@ -242,8 +242,8 @@
                             <option value="drafted">Drafted only</option>
                             <option value="undrafted">Undrafted only</option>
                             <option value="tier:Top 5">Tier: Top 5</option>
-                            <option value="tier:5-15">Tier: 5-15</option>
-                            <option value="tier:15-25">Tier: 15-25</option>
+                            <option value="tier:6-15">Tier: 6-15</option>
+                            <option value="tier:16-25">Tier: 16-25</option>
                             <option value="tier:Rest of Field">Tier: Rest of Field</option>
                         </select>
                         <select id="admin-sort" onchange="renderAdminHub()" class="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1560BD]">
@@ -292,14 +292,14 @@
 
         // --- ROSTER RULES: 8 players, 4 men + 4 women, one per tier ---
         const ROSTER_GENDERS = ["Men", "Women"];
-        const ROSTER_TIERS = ["Top 5", "5-15", "15-25", "Rest of Field"];
+        const ROSTER_TIERS = ["Top 5", "6-15", "16-25", "Rest of Field"];
         const PER_TIER_SLOTS = 1;                 // one player per gender per tier
         const ROSTER_SIZE = ROSTER_GENDERS.length * ROSTER_TIERS.length * PER_TIER_SLOTS;
 
         // Sort weights. The trailing entries are the retired Wimbledon tiers, kept
         // so any player rows left over from a previous tournament still sort sanely.
         const TIER_ORDER = {
-            "Top 5": 1, "5-15": 2, "15-25": 3, "Rest of Field": 4,
+            "Top 5": 1, "6-15": 2, "16-25": 3, "Rest of Field": 4,
             "Top 10": 1.5, "Top 25": 2.5,
         };
         const GENDER_ORDER = { "Women": 1, "Men": 2 };
