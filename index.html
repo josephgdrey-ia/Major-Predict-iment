@@ -1,83 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍓</text></svg>">
-    
-    <link class="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2312794D%22/><text y=%22.9em%22 x=%220.05em%22 font-size=%2280%22>🍓</text></svg>">
-    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎾</text></svg>">
+
+    <link class="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%23001E62%22/><text y=%22.9em%22 x=%220.05em%22 font-size=%2280%22>🎾</text></svg>">
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wimbledon Fantasy</title>
+    <title>US Open Fantasy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body class="bg-[#F4F7F6] text-gray-800 min-h-screen font-sans">
+    <style>
+        :root {
+            --navy: #001E62;
+            --navy-deep: #001343;
+            --court: #1560BD;
+            --court-soft: #E8F0FC;
+            --ball: #F2E63C;
+        }
+        body { font-family: 'Barlow', ui-sans-serif, system-ui, sans-serif; }
+        .font-display { font-family: 'Archivo Black', 'Barlow', ui-sans-serif, sans-serif; letter-spacing: -0.01em; }
+        .font-cond { font-family: 'Barlow Condensed', 'Barlow', ui-sans-serif, sans-serif; }
+        .tabnum { font-variant-numeric: tabular-nums; }
+        .hero-gradient { background: linear-gradient(100deg, #001343 0%, #001E62 45%, #10428F 100%); }
+        .court-stripe { background: repeating-linear-gradient(90deg, var(--ball) 0 28px, transparent 28px 56px); }
 
-    <header class="bg-[#12794D] shadow-md sticky top-0 z-50">
+        /* Confetti */
+        .confetti-piece {
+            position: fixed; top: -12px; width: 9px; height: 14px; z-index: 9999;
+            pointer-events: none; opacity: 0.95; border-radius: 1px;
+            animation: confetti-fall linear forwards;
+        }
+        @keyframes confetti-fall {
+            0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+        }
+        @keyframes pop-in { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .pop-in { animation: pop-in 0.25s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+            .confetti-piece, .pop-in { animation: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-[#F2F5F9] text-gray-800 min-h-screen">
+
+    <header class="hero-gradient shadow-lg sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
-                <span class="text-2xl">🍓</span>
-                <h1 class="text-xl font-black tracking-tight text-white uppercase">Major Predict-iment <span class="font-normal opacity-80">(Wimbledon 2026)</span></h1>
+                <span class="text-2xl">🎾</span>
+                <h1 class="font-display text-xl text-white uppercase leading-none">
+                    Major Predict-iment
+                    <span class="block sm:inline font-cond font-normal text-[#F2E63C] text-base tracking-wide normal-case">US Open 2026</span>
+                </h1>
             </div>
-            <nav class="flex bg-[#0d5c3a] p-1 rounded-lg border border-[#0a4a2e] overflow-x-auto max-w-full">
-                <button onclick="switchView('rules')" id="nav-rules" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer bg-[#5A3A88] text-white shadow-sm whitespace-nowrap">Rules & Draws</button>
-                <button onclick="switchView('leaderboard')" id="nav-leaderboard" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white whitespace-nowrap">Leaderboard</button>
-                <button onclick="switchView('teams')" id="nav-teams" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white whitespace-nowrap">See Teams</button>
-                <button onclick="switchView('admin')" id="nav-admin" class="px-4 py-2 rounded-md text-sm font-bold transition-all cursor-pointer text-white/80 hover:text-white whitespace-nowrap">Admin Hub</button>
+            <nav class="flex bg-[#001343] p-1 rounded-lg border border-white/10 overflow-x-auto max-w-full">
+                <button onclick="switchView('rules')" id="nav-rules" class="px-3.5 py-2 rounded-md text-sm font-bold transition-all cursor-pointer whitespace-nowrap text-white/70 hover:text-white">Rules &amp; Draws</button>
+                <button onclick="switchView('leaderboard')" id="nav-leaderboard" class="px-3.5 py-2 rounded-md text-sm font-bold transition-all cursor-pointer whitespace-nowrap text-white/70 hover:text-white">Leaderboard</button>
+                <button onclick="switchView('teams')" id="nav-teams" class="px-3.5 py-2 rounded-md text-sm font-bold transition-all cursor-pointer whitespace-nowrap text-white/70 hover:text-white">See Teams</button>
+                <button onclick="switchView('hof')" id="nav-hof" class="px-3.5 py-2 rounded-md text-sm font-bold transition-all cursor-pointer whitespace-nowrap text-white/70 hover:text-white">Hall of Fame</button>
+                <button onclick="switchView('admin')" id="nav-admin" class="px-3.5 py-2 rounded-md text-sm font-bold transition-all cursor-pointer whitespace-nowrap text-white/70 hover:text-white">Admin Hub</button>
             </nav>
         </div>
+        <div class="h-1.5 court-stripe opacity-90"></div>
     </header>
 
+    <div id="champion-banner" class="hidden"></div>
+
     <main class="max-w-6xl mx-auto px-4 py-8">
-        
+
         <section id="view-rules" class="view-content block space-y-6">
             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <h2 class="text-2xl font-black mb-4 flex items-center gap-2 text-[#5A3A88]">📖 How to Play & Scoring</h2>
+                <h2 class="font-display text-2xl mb-4 flex items-center gap-2 text-[#001E62] uppercase">📖 How to Play &amp; Scoring</h2>
                 <p class="text-gray-600 mb-6 leading-relaxed">
-                    Points are awarded based on cumulative match wins for the players you draft. The deeper a player goes in the tournament, the more points each subsequent win is worth. Tie-breaker will be first total sets won, followed by points won, followed by first serve percentage.
+                    Points are awarded based on cumulative match wins for the players you draft. The deeper a player goes in Flushing Meadows, the more points each subsequent win is worth. Tie-breaker will be first total sets won, followed by points won, followed by first serve percentage.
                 </p>
-                
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                        <ul class="space-y-2 text-sm font-medium text-gray-700">
-                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 1 Win (1 win)</span> <strong class="text-[#12794D]">+1 pt</strong></li>
-                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 2 Win (2 wins)</span> <strong class="text-[#12794D]">+2 pts (3 total)</strong></li>
-                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 3 Win (3 wins)</span> <strong class="text-[#12794D]">+3 pts (6 total)</strong></li>
-                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Round 4 Win (4 wins)</span> <strong class="text-[#12794D]">+4 pts (10 total)</strong></li>
+                    <div class="bg-[#F7FAFF] border border-[#DCE7F7] rounded-xl p-4">
+                        <ul class="space-y-2 text-sm font-semibold text-gray-700">
+                            <li class="flex justify-between border-b border-[#DCE7F7] pb-1"><span>Round 1 Win (1 win)</span> <strong class="text-[#1560BD] tabnum">+1 pt</strong></li>
+                            <li class="flex justify-between border-b border-[#DCE7F7] pb-1"><span>Round 2 Win (2 wins)</span> <strong class="text-[#1560BD] tabnum">+2 pts (3 total)</strong></li>
+                            <li class="flex justify-between border-b border-[#DCE7F7] pb-1"><span>Round 3 Win (3 wins)</span> <strong class="text-[#1560BD] tabnum">+3 pts (6 total)</strong></li>
+                            <li class="flex justify-between border-b border-[#DCE7F7] pb-1"><span>Round 4 Win (4 wins)</span> <strong class="text-[#1560BD] tabnum">+4 pts (10 total)</strong></li>
                         </ul>
                     </div>
-                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                        <ul class="space-y-2 text-sm font-medium text-gray-700">
-                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Quarterfinal Win (5 wins)</span> <strong class="text-[#12794D]">+5 pts (15 total)</strong></li>
-                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Semifinal Win (6 wins)</span> <strong class="text-[#12794D]">+6 pts (21 total)</strong></li>
-                            <li class="flex justify-between border-b border-gray-200 pb-1"><span>Championship Win (7 wins)</span> <strong class="text-[#12794D]">+7 pts (28 total)</strong></li>
+                    <div class="bg-[#F7FAFF] border border-[#DCE7F7] rounded-xl p-4">
+                        <ul class="space-y-2 text-sm font-semibold text-gray-700">
+                            <li class="flex justify-between border-b border-[#DCE7F7] pb-1"><span>Quarterfinal Win (5 wins)</span> <strong class="text-[#1560BD] tabnum">+5 pts (15 total)</strong></li>
+                            <li class="flex justify-between border-b border-[#DCE7F7] pb-1"><span>Semifinal Win (6 wins)</span> <strong class="text-[#1560BD] tabnum">+6 pts (21 total)</strong></li>
+                            <li class="flex justify-between border-b border-[#DCE7F7] pb-1"><span>Championship Win (7 wins)</span> <strong class="text-[#1560BD] tabnum">+7 pts (28 total)</strong></li>
                         </ul>
                     </div>
                 </div>
 
-                <h3 class="text-lg font-black mb-3 text-gray-800 border-t border-gray-100 pt-6">🔗 Official Wimbledon Draws</h3>
+                <h3 class="font-display text-lg mb-3 text-[#001E62] border-t border-gray-100 pt-6 uppercase">🧾 Roster Rules</h3>
+                <p class="text-gray-600 mb-4 leading-relaxed">
+                    Every manager drafts <strong>8 players — 4 men and 4 women</strong>, one from each ranking tier per gender. No doubling up inside a tier.
+                </p>
+                <div class="overflow-x-auto mb-8">
+                    <table class="w-full text-sm border-collapse">
+                        <thead>
+                            <tr class="text-[#001E62] text-xs uppercase tracking-wider font-bold border-b-2 border-[#001E62]">
+                                <th class="text-left pb-2">Tier</th>
+                                <th class="text-center pb-2">Men</th>
+                                <th class="text-center pb-2">Women</th>
+                            </tr>
+                        </thead>
+                        <tbody id="roster-rules-rows" class="divide-y divide-gray-100 font-semibold text-gray-700"></tbody>
+                    </table>
+                </div>
+
+                <h3 class="font-display text-lg mb-3 text-[#001E62] border-t border-gray-100 pt-6 uppercase">📈 What "Ceiling" Means</h3>
+                <p class="text-gray-600 mb-8 leading-relaxed">
+                    Your ceiling is the highest score you could still finish with. Only one player can win each draw, so your surviving
+                    men are slotted into the best finishes still available — champion (28), runner-up (21), then two semifinal spots (15) —
+                    and your women the same. It ignores the possibility that two of your own players meet each other, so treat it as a
+                    generous best case. Once your ceiling falls below the leader's current score, you're mathematically done.
+                </p>
+
+                <h3 class="font-display text-lg mb-3 text-[#001E62] border-t border-gray-100 pt-6 uppercase">🔗 Official US Open Draws</h3>
                 <div class="flex flex-col sm:flex-row gap-4">
-                    <a href="https://www.wimbledon.com/en_GB/draws/gentlemens-singles/1" target="_blank" class="flex-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2">
+                    <a href="https://www.usopen.org/en_US/scores/draws/ms/index.html" target="_blank" rel="noopener" class="flex-1 bg-[#001E62] hover:bg-[#10428F] text-white font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
                         <span>🎾</span> Men's Singles Draw
                     </a>
-                    <a href="https://www.wimbledon.com/en_GB/draws/ladies-singles" target="_blank" class="flex-1 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2">
+                    <a href="https://www.usopen.org/en_US/scores/draws/ws/index.html" target="_blank" rel="noopener" class="flex-1 bg-[#1560BD] hover:bg-[#10428F] text-white font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
                         <span>🎾</span> Women's Singles Draw
+                    </a>
+                    <a href="https://www.usopen.org/en_US/scores/index.html" target="_blank" rel="noopener" class="flex-1 bg-[#F2E63C] hover:bg-[#e5d81f] text-[#001E62] font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
+                        <span>📊</span> Live Scores
                     </a>
                 </div>
             </div>
         </section>
 
-        <section id="view-leaderboard" class="view-content hidden">
+        <section id="view-leaderboard" class="view-content hidden space-y-6">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="league-stats"></div>
+
             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-                <h2 class="text-xl font-black mb-4 flex items-center gap-2 text-[#12794D]">🏆 Standings</h2>
+                <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+                    <h2 class="font-display text-xl flex items-center gap-2 text-[#001E62] uppercase">🏆 Standings</h2>
+                    <div class="flex items-center gap-2">
+                        <span id="last-updated" class="text-[11px] text-gray-400 font-semibold uppercase tracking-wider"></span>
+                        <button onclick="copyStandings()" id="copy-btn" class="text-xs font-bold uppercase tracking-wider bg-[#001E62] hover:bg-[#10428F] text-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer">📋 Copy for group chat</button>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mb-3">Tap any manager to peek at their roster. <strong>Ceiling</strong> = best score still reachable, given that only one player can win each draw.</p>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="border-b border-gray-200 text-gray-500 text-sm uppercase tracking-wider font-bold">
-                                <th class="pb-3 pl-4 w-16">Rank</th>
-                                <th class="pb-3">Manager</th>
-                                <th class="pb-3 text-center">Remaining</th>
-                                <th class="pb-3 text-right pr-4">Total Points</th>
+                            <tr class="border-b-2 border-[#001E62] text-[#001E62] text-xs uppercase tracking-wider font-bold">
+                                <th class="pb-2 pl-4 w-16">Rank</th>
+                                <th class="pb-2 px-2">Manager</th>
+                                <th class="pb-2 px-2 text-center">Alive</th>
+                                <th class="pb-2 px-2 text-center hidden sm:table-cell">Ceiling</th>
+                                <th class="pb-2 pl-2 text-right pr-4">Points</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboard-rows" class="divide-y divide-gray-100">
@@ -92,41 +171,88 @@
             </div>
         </section>
 
+        <section id="view-hof" class="view-content hidden space-y-6">
+            <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <h2 class="font-display text-2xl mb-1 flex items-center gap-2 text-[#001E62] uppercase">🏛️ Hall of Fame</h2>
+                <p class="text-sm text-gray-500 mb-6">Every Major Predict-iment champion, for as long as anyone cares to remember.</p>
+                <div id="hof-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                <div id="hof-tally" class="mt-8 pt-6 border-t border-gray-100"></div>
+            </div>
+        </section>
+
         <section id="view-admin" class="view-content hidden space-y-6">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm lg:col-span-1 h-fit">
-                    <h3 class="text-lg font-black mb-4 text-[#5A3A88]">➕ Add Tennis Player</h3>
+                    <h3 class="font-display text-lg mb-4 text-[#001E62] uppercase">➕ Add Tennis Player</h3>
                     <form id="add-player-form" class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Player Name</label>
-                            <input type="text" id="new-player-name" required class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A3A88] focus:border-transparent transition-all">
+                            <input type="text" id="new-player-name" required class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1560BD] focus:border-transparent transition-all">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Flag Emoji</label>
-                            <input type="text" id="new-player-flag" placeholder="e.g. 🇬🇧" required class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A3A88] focus:border-transparent transition-all">
+                            <input type="text" id="new-player-flag" placeholder="e.g. 🇺🇸" required class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1560BD] focus:border-transparent transition-all">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Gender</label>
-                            <select id="new-player-gender" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A3A88] focus:border-transparent transition-all">
+                            <select id="new-player-gender" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1560BD] focus:border-transparent transition-all">
                                 <option value="Men">Men</option>
                                 <option value="Women">Women</option>
                             </select>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Draft Tier</label>
-                            <select id="new-player-tier" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5A3A88] focus:border-transparent transition-all">
-                                <option value="Top 10">Top 10</option>
-                                <option value="Top 25">Top 25</option>
+                            <select id="new-player-tier" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1560BD] focus:border-transparent transition-all">
+                                <option value="Top 5">Top 5</option>
+                                <option value="5-15">5-15</option>
+                                <option value="15-25">15-25</option>
                                 <option value="Rest of Field">Rest of Field</option>
                             </select>
                         </div>
-                        <button type="submit" class="w-full bg-[#12794D] hover:bg-[#0e613d] text-white font-bold py-2.5 rounded-lg transition-colors cursor-pointer mt-2">Save Player</button>
+                        <button type="submit" class="w-full bg-[#001E62] hover:bg-[#10428F] text-white font-bold py-2.5 rounded-lg transition-colors cursor-pointer mt-2 uppercase tracking-wide text-sm">Save Player</button>
                     </form>
+
+                    <div class="mt-6 pt-5 border-t border-gray-200">
+                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-500 mb-2">🏛️ Crown a Champion</h4>
+                        <p class="text-[11px] text-gray-500 mb-3 leading-relaxed">Copies a ready-made Hall of Fame line for the current leader. Paste it into the <code class="bg-gray-100 px-1 rounded">HALL_OF_FAME</code> list near the top of this file.</p>
+                        <button onclick="copyChampionLine()" id="crown-btn" class="w-full bg-[#F2E63C] hover:bg-[#e5d81f] text-[#001E62] font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer">Copy champion line</button>
+                    </div>
+
+                    <div class="mt-6 pt-5 border-t border-gray-200">
+                        <h4 class="text-xs font-black uppercase tracking-wider text-gray-500 mb-2">🔄 New Tournament Rollover</h4>
+                        <p class="text-[11px] text-gray-500 mb-3 leading-relaxed">Run these once before the draft. Each asks you to type a confirmation word first.</p>
+                        <div class="space-y-2">
+                            <button onclick="resetAllScores()" class="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer">Reset all wins &amp; statuses</button>
+                            <button onclick="clearAllRosters()" class="w-full bg-white hover:bg-red-50 text-red-600 border border-red-200 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer">Clear every roster</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm lg:col-span-2">
-                    <h3 class="text-lg font-black mb-1 text-[#12794D]">🎾 Live Match Win Tracker</h3>
-                    <p class="text-sm text-gray-500 mb-4 border-b border-gray-100 pb-4">Manage wins, assignments, and elimination status.</p>
+                    <h3 class="font-display text-lg mb-1 text-[#001E62] uppercase">🎾 Live Match Win Tracker</h3>
+                    <p class="text-sm text-gray-500 mb-4">Manage wins, assignments, and elimination status.</p>
+                    <div id="draft-status" class="mb-4"></div>
+                    <div class="flex flex-wrap gap-2 mb-3 border-b border-gray-100 pb-4">
+                        <input type="text" id="admin-search" oninput="renderAdminHub()" placeholder="Search players…" class="flex-1 min-w-[160px] bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1560BD]">
+                        <select id="admin-filter" onchange="renderAdminHub()" class="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1560BD]">
+                            <option value="all">All players</option>
+                            <option value="alive">Still alive</option>
+                            <option value="Men">Men only</option>
+                            <option value="Women">Women only</option>
+                            <option value="drafted">Drafted only</option>
+                            <option value="undrafted">Undrafted only</option>
+                            <option value="tier:Top 5">Tier: Top 5</option>
+                            <option value="tier:5-15">Tier: 5-15</option>
+                            <option value="tier:15-25">Tier: 15-25</option>
+                            <option value="tier:Rest of Field">Tier: Rest of Field</option>
+                        </select>
+                        <select id="admin-sort" onchange="renderAdminHub()" class="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1560BD]">
+                            <option value="name">Sort: A–Z</option>
+                            <option value="wins">Sort: Most wins</option>
+                            <option value="tier">Sort: Tier</option>
+                        </select>
+                    </div>
+                    <div id="admin-count" class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2"></div>
                     <div id="admin-players-list" class="divide-y divide-gray-100 max-h-[500px] overflow-y-auto pr-2">
                     </div>
                 </div>
@@ -135,15 +261,57 @@
 
     </main>
 
+    <footer class="max-w-6xl mx-auto px-4 pb-10 text-center text-xs text-gray-400 font-semibold uppercase tracking-wider">
+        Flushing Meadows · Aug–Sep 2026
+    </footer>
+
     <script>
         // --- 1. CONFIGURATION & INITIALIZATION ---
-        const SUPABASE_URL = "https://frhvoqwzeipuspzvulcj.supabase.co"; 
+        const SUPABASE_URL = "https://frhvoqwzeipuspzvulcj.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_Y8YLRrHYwTsW1CfJbB3fUQ_RCPxqxt4";
-        
+
         const dbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // =====================================================================
+        // HALL OF FAME — add one line per tournament. Newest anywhere in the
+        // list; they get sorted by year automatically. The Admin Hub has a
+        // "Copy champion line" button that writes one of these for you.
+        // =====================================================================
+        const HALL_OF_FAME = [
+            { tournament: "Wimbledon", year: 2026, winner: "Meloro", points: 58, note: "" },
+        ];
+
+        // Each Major gets its own colours in the Hall of Fame.
+        const TOURNAMENT_STYLE = {
+            "Australian Open": { emoji: "☀️", bg: "#0C6DB5", ink: "#ffffff" },
+            "Roland Garros":   { emoji: "🧱", bg: "#B85C38", ink: "#ffffff" },
+            "Wimbledon":       { emoji: "🍓", bg: "#12794D", ink: "#ffffff" },
+            "US Open":         { emoji: "🗽", bg: "#001E62", ink: "#ffffff" },
+        };
+        const DEFAULT_TOURNAMENT_STYLE = { emoji: "🏆", bg: "#374151", ink: "#ffffff" };
+
+        // --- ROSTER RULES: 8 players, 4 men + 4 women, one per tier ---
+        const ROSTER_GENDERS = ["Men", "Women"];
+        const ROSTER_TIERS = ["Top 5", "5-15", "15-25", "Rest of Field"];
+        const PER_TIER_SLOTS = 1;                 // one player per gender per tier
+        const ROSTER_SIZE = ROSTER_GENDERS.length * ROSTER_TIERS.length * PER_TIER_SLOTS;
+
+        // Sort weights. The trailing entries are the retired Wimbledon tiers, kept
+        // so any player rows left over from a previous tournament still sort sanely.
+        const TIER_ORDER = {
+            "Top 5": 1, "5-15": 2, "15-25": 3, "Rest of Field": 4,
+            "Top 10": 1.5, "Top 25": 2.5,
+        };
+        const GENDER_ORDER = { "Women": 1, "Men": 2 };
+
+        const MAX_WINS = 7;
+        const ROUND_LABELS = ["R1", "R2", "R3", "R4", "QF", "SF", "F"];
 
         let localPlayers = [];
         let localTeams = [];
+        let currentView = 'rules';
+        let refreshTimer = null;
+        let celebratedChampions = new Set();
 
         function calculatePoints(wins) {
             let total = 0;
@@ -151,15 +319,106 @@
             return total;
         }
 
-        // --- 2. VIEW CONTROLLER ---
+        // --- 2. CEILING MATH ---
+        // In one 128-player draw exactly one player finishes on 7 wins, one on 6,
+        // two on 5, four on 4, and so on. So a manager's surviving players can't
+        // all be champion — they compete for a fixed ladder of finishes.
+        const FINISHES_AVAILABLE = { 7: 1, 6: 1, 5: 2, 4: 4, 3: 8, 2: 16, 1: 32, 0: 64 };
+
+        function bestAvailableFinishes(count) {
+            const slots = [];
+            for (let w = MAX_WINS; w >= 0 && slots.length < count; w--) {
+                for (let i = 0; i < FINISHES_AVAILABLE[w] && slots.length < count; i++) slots.push(w);
+            }
+            return slots;
+        }
+
+        // Best score a manager could still finish on, computed per draw and summed.
+        function teamCeiling(team) {
+            const byGender = {};
+            team.players.forEach(p => {
+                const key = p.gender || 'Unknown';
+                (byGender[key] = byGender[key] || []).push(p);
+            });
+
+            let total = 0;
+            Object.values(byGender).forEach(roster => {
+                // Eliminated players are locked at what they already banked.
+                roster.filter(p => p.is_out).forEach(p => { total += calculatePoints(p.wins); });
+
+                // Hand the deepest-running survivor the best finish still on offer.
+                const alive = roster.filter(p => !p.is_out).sort((a, b) => b.wins - a.wins);
+                const slots = bestAvailableFinishes(alive.length);
+                alive.forEach((p, i) => {
+                    total += calculatePoints(Math.max(p.wins, slots[i] ?? 0));
+                });
+            });
+            return total;
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            })[c]);
+        }
+
+        function roundDots(wins, isOut) {
+            let out = '';
+            for (let i = 1; i <= MAX_WINS; i++) {
+                const won = i <= wins;
+                const cls = won
+                    ? (isOut ? 'bg-gray-400' : 'bg-[#1560BD]')
+                    : 'bg-gray-200';
+                out += `<span title="${ROUND_LABELS[i-1]}" class="inline-block w-1.5 h-1.5 rounded-full ${cls}"></span>`;
+            }
+            return `<span class="inline-flex gap-1 items-center align-middle">${out}</span>`;
+        }
+
+        // --- 3. ROSTER AUDIT ---
+        // Flags a roster that doesn't match the 4-men / 4-women, one-per-tier shape.
+        function rosterAudit(team) {
+            const missing = [];
+            const doubled = [];
+            const counts = {};
+
+            ROSTER_GENDERS.forEach(g => {
+                counts[g] = team.players.filter(p => p.gender === g).length;
+                ROSTER_TIERS.forEach(t => {
+                    const n = team.players.filter(p => p.gender === g && p.tier === t).length;
+                    if (n < PER_TIER_SLOTS) missing.push(`${g} ${t}`);
+                    if (n > PER_TIER_SLOTS) doubled.push(`${g} ${t} ×${n}`);
+                });
+            });
+
+            return {
+                counts,
+                missing,
+                doubled,
+                size: team.players.length,
+                complete: missing.length === 0 && doubled.length === 0 && team.players.length === ROSTER_SIZE
+            };
+        }
+
+        function rosterBadge(team) {
+            const audit = rosterAudit(team);
+            if (audit.complete) {
+                return `<span class="text-[10px] font-black uppercase tracking-wider bg-[#E8F0FC] text-[#001E62] px-2 py-0.5 rounded" title="4 men · 4 women · one per tier">Roster set ✓</span>`;
+            }
+            const problems = [...audit.missing.map(m => 'missing ' + m), ...audit.doubled.map(d => 'two in ' + d)];
+            return `<span class="text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 px-2 py-0.5 rounded" title="${escapeHtml(problems.join(' · '))}">${audit.size}/${ROSTER_SIZE} · ${audit.counts.Men || 0}M ${audit.counts.Women || 0}W</span>`;
+        }
+
+        // --- 4. VIEW CONTROLLER ---
         function switchView(viewId) {
             if (viewId === 'admin') {
                 const password = prompt("Enter the Admin Password:");
-                if (password !== "PIMS") { 
+                if (password !== "PIMS") {
                     alert("Incorrect password. Ask Joe if something is incorrect!");
-                    return; 
+                    return;
                 }
             }
+
+            currentView = viewId;
 
             document.querySelectorAll('.view-content').forEach(el => {
                 el.classList.remove('block');
@@ -167,30 +426,33 @@
             });
             document.getElementById(`view-${viewId}`).classList.remove('hidden');
             document.getElementById(`view-${viewId}`).classList.add('block');
-            
+
             document.querySelectorAll('nav button').forEach(btn => {
-                btn.classList.remove('bg-[#5A3A88]', 'text-white', 'shadow-sm');
-                btn.classList.add('text-white/80', 'hover:text-white');
+                btn.classList.remove('bg-[#F2E63C]', 'text-[#001E62]', 'shadow-sm');
+                btn.classList.add('text-white/70', 'hover:text-white');
             });
             const activeBtn = document.getElementById(`nav-${viewId}`);
-            activeBtn.classList.remove('text-white/80', 'hover:text-white');
-            activeBtn.classList.add('bg-[#5A3A88]', 'text-white', 'shadow-sm');
+            activeBtn.classList.remove('text-white/70', 'hover:text-white');
+            activeBtn.classList.add('bg-[#F2E63C]', 'text-[#001E62]', 'shadow-sm');
 
-            // Only fetch dynamically updated data if we navigate to a data-driven view
-            if (viewId !== 'rules') {
-                fetchCoreData().then(() => {
-                    if (viewId === 'leaderboard') renderLeaderboard();
-                    if (viewId === 'teams') renderTeams();
-                    if (viewId === 'admin') renderAdminHub();
-                });
-            }
+            if (viewId === 'rules') { renderRosterRules(); return; }
+            if (viewId === 'hof') { renderHallOfFame(); return; }
+
+            fetchCoreData().then(() => renderCurrentView());
         }
 
-        // --- 3. UI TOGGLES ---
+        function renderCurrentView() {
+            if (currentView === 'leaderboard') renderLeaderboard();
+            if (currentView === 'teams') renderTeams();
+            if (currentView === 'admin') renderAdminHub();
+            checkForChampions();
+        }
+
+        // --- 5. UI TOGGLES ---
         function toggleTeam(teamId) {
             const contentDiv = document.getElementById(`content-team-${teamId}`);
             const icon = document.getElementById(`icon-team-${teamId}`);
-            
+
             if (contentDiv.classList.contains('hidden')) {
                 contentDiv.classList.remove('hidden');
                 contentDiv.classList.add('block');
@@ -202,51 +464,147 @@
             }
         }
 
-        // --- 4. DATA FETCHING ---
+        function toggleRosterRow(teamId) {
+            const row = document.getElementById(`lb-roster-${teamId}`);
+            if (!row) return;
+            row.classList.toggle('hidden');
+        }
+
+        // --- 6. DATA FETCHING ---
         async function fetchCoreData() {
             const { data: players, error: pErr } = await dbClient.from('players').select('*').order('name', { ascending: true });
             const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins, flag, is_out, is_through)');
-            
+
             if (pErr || tErr) {
                 console.error("Database error:", pErr || tErr);
                 return;
             }
             localPlayers = players;
             localTeams = teams;
+
+            const stamp = document.getElementById('last-updated');
+            if (stamp) {
+                stamp.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            }
         }
 
-        // --- 5. DATA RENDERING ---
-        function renderLeaderboard() {
-            const standings = localTeams.map(team => {
+        // Quietly re-pull data so scores update without anyone hitting refresh.
+        function startAutoRefresh() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            refreshTimer = setInterval(() => {
+                if (document.hidden) return;
+                if (currentView === 'rules' || currentView === 'hof' || currentView === 'admin') return;
+                fetchCoreData().then(() => renderCurrentView());
+            }, 45000);
+        }
+
+        // --- 7. STANDINGS MATH ---
+        function buildStandings() {
+            return localTeams.map(team => {
                 const totalPoints = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
                 const remainingPlayers = team.players.filter(p => !p.is_out).length;
-                const totalPlayers = team.players.length;
-                return { 
-                    name: team.owner_name, 
+                return {
+                    id: team.id,
+                    name: team.owner_name,
                     points: totalPoints,
+                    ceiling: teamCeiling(team),
                     remaining: remainingPlayers,
-                    total: totalPlayers
+                    total: team.players.length,
+                    players: team.players,
+                    audit: rosterAudit(team)
                 };
-            }).sort((a, b) => (b.points - a.points) || (b.remaining - a.remaining)); // Order by score, then by remaining players
+            }).sort((a, b) => (b.points - a.points) || (b.remaining - a.remaining) || (b.ceiling - a.ceiling));
+        }
 
+        // --- 8. RENDERING ---
+        function renderRosterRules() {
+            const tbody = document.getElementById('roster-rules-rows');
+            if (!tbody) return;
+            tbody.innerHTML = ROSTER_TIERS.map(t => `
+                <tr>
+                    <td class="py-2">${escapeHtml(t)}</td>
+                    <td class="py-2 text-center text-[#1560BD] tabnum">${PER_TIER_SLOTS}</td>
+                    <td class="py-2 text-center text-[#8A7400] tabnum">${PER_TIER_SLOTS}</td>
+                </tr>
+            `).join('') + `
+                <tr class="border-t-2 border-[#001E62] font-black text-[#001E62]">
+                    <td class="py-2 uppercase text-xs tracking-wider">Total</td>
+                    <td class="py-2 text-center tabnum">${ROSTER_TIERS.length * PER_TIER_SLOTS}</td>
+                    <td class="py-2 text-center tabnum">${ROSTER_TIERS.length * PER_TIER_SLOTS}</td>
+                </tr>`;
+        }
+
+        function renderLeaderboard() {
+            const standings = buildStandings();
             const tbody = document.getElementById('leaderboard-rows');
+            const statsBox = document.getElementById('league-stats');
+
             if (standings.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">No team standings found. Setup rosters in Admin Hub.</td></tr>`;
+                statsBox.innerHTML = '';
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No team standings found. Setup rosters in Admin Hub.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = standings.map((team, idx) => `
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="py-4 pl-4 font-black text-lg ${idx === 0 ? 'text-[#5A3A88]' : idx === 1 ? 'text-[#12794D]' : 'text-gray-400'}">${idx + 1}</td>
-                    <td class="py-4 font-bold text-gray-800">${team.name}</td>
-                    <td class="py-4 text-center">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${team.remaining === 0 ? 'bg-gray-200 text-gray-500' : 'bg-gray-100 text-gray-700'}">
+            const leaderPts = standings[0].points;
+            const alivePlayers = localPlayers.filter(p => !p.is_out).length;
+            const drafted = localPlayers.filter(p => localTeams.some(t => t.players.some(tp => tp.id === p.id)));
+            const topPlayer = [...drafted].sort((a, b) => b.wins - a.wins)[0];
+            const stillMathematicallyAlive = standings.filter(s => s.ceiling >= leaderPts).length;
+
+            statsBox.innerHTML = `
+                <div class="bg-[#001E62] text-white rounded-2xl p-5 shadow-sm">
+                    <div class="text-[11px] uppercase tracking-widest text-[#F2E63C] font-bold">Current Leader</div>
+                    <div class="font-display text-2xl mt-1 leading-tight">${escapeHtml(standings[0].name)}</div>
+                    <div class="text-sm text-white/70 font-semibold tabnum">${standings[0].points} pts${(standings.length > 1 && standings[0].points > standings[1].points) ? ` · +${standings[0].points - standings[1].points} on 2nd` : (standings.length > 1 ? ' · tied at the top' : '')}</div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                    <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Top Scoring Pick</div>
+                    <div class="font-display text-2xl mt-1 leading-tight text-[#001E62]">${(topPlayer && topPlayer.wins > 0) ? escapeHtml((topPlayer.flag || '🏳️') + ' ' + topPlayer.name) : 'Nobody yet'}</div>
+                    <div class="text-sm text-gray-500 font-semibold tabnum">${(topPlayer && topPlayer.wins > 0) ? `${topPlayer.wins} ${topPlayer.wins === 1 ? 'win' : 'wins'} · ${calculatePoints(topPlayer.wins)} pts` : 'First ball not struck'}</div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                    <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Still In It</div>
+                    <div class="font-display text-2xl mt-1 leading-tight text-[#001E62] tabnum">${stillMathematicallyAlive} / ${standings.length}</div>
+                    <div class="text-sm text-gray-500 font-semibold tabnum">${alivePlayers} players left in the draw</div>
+                </div>
+            `;
+
+            const medals = ['🥇', '🥈', '🥉'];
+
+            tbody.innerHTML = standings.map((team, idx) => {
+                const eliminated = team.ceiling < leaderPts;
+                const sorted = [...team.players].sort((a, b) => calculatePoints(b.wins) - calculatePoints(a.wins));
+                return `
+                <tr class="hover:bg-[#F7FAFF] transition-colors cursor-pointer ${eliminated ? 'opacity-60' : ''}" onclick="toggleRosterRow('${team.id}')">
+                    <td class="py-4 pl-4 pr-1 font-display text-lg ${idx === 0 ? 'text-[#001E62]' : 'text-gray-400'}">${medals[idx] || (idx + 1)}</td>
+                    <td class="py-4 px-2 font-bold text-gray-800">
+                        ${escapeHtml(team.name)}
+                        ${eliminated ? '<span class="ml-2 text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-black uppercase">Eliminated</span>' : ''}
+                        <span class="block text-[11px] text-gray-400 font-semibold">tap for roster <span class="sm:hidden">· ceiling ${team.ceiling}</span></span>
+                    </td>
+                    <td class="py-4 px-2 text-center">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tabnum ${team.remaining === 0 ? 'bg-gray-200 text-gray-500' : 'bg-[#E8F0FC] text-[#001E62]'}">
                             ${team.remaining} / ${team.total}
                         </span>
                     </td>
-                    <td class="py-4 text-right pr-4 font-black text-[#12794D]">${team.points} pts</td>
+                    <td class="py-4 px-2 text-center text-sm font-bold text-gray-400 tabnum hidden sm:table-cell">${team.ceiling}</td>
+                    <td class="py-4 pl-2 text-right pr-4 font-display text-xl text-[#001E62] tabnum">${team.points}</td>
                 </tr>
-            `).join('');
+                <tr id="lb-roster-${team.id}" class="hidden bg-[#F7FAFF]">
+                    <td colspan="5" class="px-4 py-3">
+                        <div class="flex flex-wrap gap-2">
+                            ${sorted.length === 0 ? '<span class="text-xs text-gray-400 italic">No players drafted.</span>' : ''}
+                            ${sorted.map(p => `
+                                <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg border ${p.is_out ? 'bg-gray-100 border-gray-200 text-gray-400 line-through' : 'bg-white border-[#DCE7F7] text-[#001E62]'}">
+                                    ${escapeHtml(p.flag || '🏳️')} ${escapeHtml(p.name)}
+                                    <span class="tabnum ${p.is_out ? 'text-gray-400' : 'text-[#1560BD]'}">${calculatePoints(p.wins)}</span>
+                                </span>
+                            `).join('')}
+                        </div>
+                    </td>
+                </tr>
+                `;
+            }).join('');
         }
 
         function renderTeams() {
@@ -256,40 +614,40 @@
                 return;
             }
 
-            // Define the strict sorting hierarchy
-            const tierOrder = { "Top 10": 1, "Top 25": 2, "Rest of Field": 3 };
-            const genderOrder = { "Women": 1, "Men": 2 };
-
             container.innerHTML = localTeams.map(team => {
                 const teamTotal = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
-                
-                // Sort array copy safely by Tier rank, then by Gender rank
+                const ceiling = teamCeiling(team);
+
                 const sortedPlayers = [...team.players].sort((a, b) => {
-                    if (tierOrder[a.tier] !== tierOrder[b.tier]) {
-                        return tierOrder[a.tier] - tierOrder[b.tier];
-                    }
-                    return genderOrder[a.gender] - genderOrder[b.gender];
+                    const ta = TIER_ORDER[a.tier] ?? 99;
+                    const tb = TIER_ORDER[b.tier] ?? 99;
+                    if (ta !== tb) return ta - tb;
+                    return (GENDER_ORDER[a.gender] ?? 99) - (GENDER_ORDER[b.gender] ?? 99);
                 });
 
                 return `
                     <div class="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-                        <div class="flex justify-between items-center border-b border-gray-100 pb-3 cursor-pointer select-none group" onclick="toggleTeam('${team.id}')">
-                            <h3 class="text-xl font-black text-gray-800 flex items-center gap-2 group-hover:text-[#5A3A88] transition-colors">
+                        <div class="flex justify-between items-center border-b-2 border-[#001E62] pb-3 cursor-pointer select-none group gap-2" onclick="toggleTeam('${team.id}')">
+                            <h3 class="font-display text-xl text-[#001E62] flex items-center gap-2 uppercase min-w-0">
                                 <span id="icon-team-${team.id}" class="text-[10px] text-gray-400 transition-transform duration-200 transform">▼</span>
-                                Team ${team.owner_name}
+                                <span class="truncate">${escapeHtml(team.owner_name)}</span>
                             </h3>
-                            <span class="text-sm font-bold text-[#12794D] bg-green-50 px-3 py-1 rounded-full border border-green-200">${teamTotal} pts</span>
+                            <div class="text-right shrink-0">
+                                <span class="font-display text-lg text-[#001E62] tabnum">${teamTotal} pts</span>
+                                <span class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 tabnum">Ceiling ${ceiling}</span>
+                            </div>
                         </div>
-                        
+
+                        <div class="mt-3">${rosterBadge(team)}</div>
+
                         <div id="content-team-${team.id}" class="space-y-2.5 mt-4 block transition-all duration-300 origin-top">
                             ${sortedPlayers.length === 0 ? '<div class="text-xs text-gray-400 italic p-2 text-center">No players drafted yet.</div>' : ''}
                             ${sortedPlayers.map(p => {
-                                // Dynamic faded gray styles vs active/through states
                                 let cardStyleClass = 'bg-gray-50 border-gray-100';
                                 let nameStyleClass = 'text-gray-800';
                                 let textSubStyleClass = 'text-gray-500';
                                 let winCountStyleClass = 'text-gray-800';
-                                let winPointsStyleClass = 'text-[#12794D]';
+                                let winPointsStyleClass = 'text-[#1560BD]';
 
                                 if (p.is_out) {
                                     cardStyleClass = 'bg-gray-100/70 border-gray-200 opacity-50 grayscale';
@@ -298,31 +656,33 @@
                                     winCountStyleClass = 'text-gray-500';
                                     winPointsStyleClass = 'text-gray-400';
                                 } else if (p.is_through) {
-                                    cardStyleClass = 'bg-green-50 border-green-200';
-                                    nameStyleClass = 'text-green-900 font-extrabold';
-                                    textSubStyleClass = 'text-green-700/80';
-                                    winCountStyleClass = 'text-green-800';
-                                    winPointsStyleClass = 'text-green-700';
+                                    cardStyleClass = 'bg-[#E8F0FC] border-[#B9D2F2]';
+                                    nameStyleClass = 'text-[#001E62] font-extrabold';
+                                    textSubStyleClass = 'text-[#1560BD]';
+                                    winCountStyleClass = 'text-[#001E62]';
+                                    winPointsStyleClass = 'text-[#1560BD]';
                                 }
 
                                 return `
                                     <div class="flex justify-between items-center p-3 rounded-xl border ${cardStyleClass}">
                                         <div>
-                                            <div class="font-bold flex items-center gap-1.5 ${nameStyleClass}">
-                                                <span>${p.flag || '🏳️'}</span> 
-                                                <span>${p.name}</span>
+                                            <div class="font-bold flex items-center gap-1.5 flex-wrap ${nameStyleClass}">
+                                                <span>${escapeHtml(p.flag || '🏳️')}</span>
+                                                <span>${escapeHtml(p.name)}</span>
+                                                ${p.wins >= MAX_WINS ? '<span class="text-[10px] bg-[#F2E63C] text-[#001E62] px-1.5 py-0.5 rounded font-black ml-1">CHAMPION 🏆</span>' : ''}
                                                 ${p.is_out ? '<span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-black ml-1">OUT</span>' : ''}
-                                                ${(!p.is_out && p.is_through) ? '<span class="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-black ml-1">THROUGH</span>' : ''}
+                                                ${(!p.is_out && p.is_through) ? '<span class="text-[10px] bg-[#001E62] text-white px-1.5 py-0.5 rounded font-black ml-1">THROUGH</span>' : ''}
                                             </div>
-                                            <div class="text-xs font-semibold mt-0.5 flex gap-1.5 items-center ${textSubStyleClass}">
-                                                <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-purple-50 text-[#5A3A88] border border-purple-100'}">${p.gender}</span>
+                                            <div class="text-xs font-semibold mt-1 flex gap-1.5 items-center ${textSubStyleClass}">
+                                                <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-[#E8F0FC] text-[#1560BD] border border-[#B9D2F2]' : 'bg-[#FCF7DA] text-[#8A7400] border border-[#EFE39B]'}">${escapeHtml(p.gender)}</span>
                                                 <span>•</span>
-                                                <span>${p.tier}</span>
+                                                <span>${escapeHtml(p.tier)}</span>
                                             </div>
+                                            <div class="mt-1.5">${roundDots(p.wins, p.is_out)}</div>
                                         </div>
                                         <div class="text-right">
-                                            <div class="text-sm font-bold ${winCountStyleClass}">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
-                                            <div class="text-xs font-bold ${winPointsStyleClass}">+${calculatePoints(p.wins)} pts</div>
+                                            <div class="text-sm font-bold tabnum ${winCountStyleClass}">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
+                                            <div class="text-xs font-bold tabnum ${winPointsStyleClass}">+${calculatePoints(p.wins)} pts</div>
                                         </div>
                                     </div>
                                 `;
@@ -333,50 +693,153 @@
             }).join('');
         }
 
+        function renderHallOfFame() {
+            const grid = document.getElementById('hof-grid');
+            const tally = document.getElementById('hof-tally');
+
+            if (HALL_OF_FAME.length === 0) {
+                grid.innerHTML = `<div class="col-span-full p-8 text-center text-gray-400 italic border-2 border-dashed border-gray-200 rounded-xl">No champions yet. Somebody go win something.</div>`;
+                tally.innerHTML = '';
+                return;
+            }
+
+            const sorted = [...HALL_OF_FAME].sort((a, b) => b.year - a.year);
+
+            grid.innerHTML = sorted.map(entry => {
+                const style = TOURNAMENT_STYLE[entry.tournament] || DEFAULT_TOURNAMENT_STYLE;
+                return `
+                    <div class="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+                        <div class="px-5 py-3 flex items-center justify-between" style="background:${style.bg};color:${style.ink}">
+                            <span class="font-display uppercase text-sm tracking-wide">${style.emoji} ${escapeHtml(entry.tournament)}</span>
+                            <span class="font-cond text-lg tabnum opacity-90">${escapeHtml(entry.year)}</span>
+                        </div>
+                        <div class="p-5 bg-white">
+                            <div class="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Champion</div>
+                            <div class="font-display text-2xl text-[#001E62] leading-tight mt-0.5">${escapeHtml(entry.winner)}</div>
+                            ${entry.points != null ? `<div class="text-sm font-bold text-gray-500 tabnum mt-1">${escapeHtml(entry.points)} pts</div>` : ''}
+                            ${entry.note ? `<div class="text-xs text-gray-500 italic mt-2 leading-relaxed">${escapeHtml(entry.note)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Career titles, most decorated first.
+            const wins = {};
+            HALL_OF_FAME.forEach(e => { wins[e.winner] = (wins[e.winner] || 0) + 1; });
+            const ranked = Object.entries(wins).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+            tally.innerHTML = `
+                <h3 class="font-display text-sm uppercase tracking-wider text-gray-500 mb-3">Career Majors</h3>
+                <div class="flex flex-wrap gap-2">
+                    ${ranked.map(([name, n]) => `
+                        <span class="inline-flex items-center gap-2 bg-[#E8F0FC] border border-[#B9D2F2] text-[#001E62] px-3 py-1.5 rounded-lg text-sm font-bold">
+                            ${escapeHtml(name)}
+                            <span class="tabnum bg-[#001E62] text-white px-1.5 py-0.5 rounded text-[11px]">${n}</span>
+                        </span>
+                    `).join('')}
+                </div>
+            `;
+        }
+
         function renderAdminHub() {
             const list = document.getElementById('admin-players-list');
+            const countBox = document.getElementById('admin-count');
+            const draftBox = document.getElementById('draft-status');
+
+            // Draft progress across all teams, so you can see who still owes picks.
+            draftBox.innerHTML = localTeams.length === 0 ? '' : `
+                <div class="flex flex-wrap gap-2">
+                    ${localTeams.map(t => {
+                        const a = rosterAudit(t);
+                        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${a.complete ? 'bg-[#E8F0FC] border-[#B9D2F2] text-[#001E62]' : 'bg-amber-50 border-amber-200 text-amber-800'}"
+                                      title="${a.complete ? 'Roster set' : escapeHtml([...a.missing.map(m => 'missing ' + m), ...a.doubled.map(d => 'two in ' + d)].join(' · '))}">
+                                    ${escapeHtml(t.owner_name)}
+                                    <span class="tabnum">${a.size}/${ROSTER_SIZE}</span>
+                                    ${a.complete ? '✓' : ''}
+                                </span>`;
+                    }).join('')}
+                </div>`;
+
             if (localPlayers.length === 0) {
+                countBox.textContent = '';
                 list.innerHTML = `<p class="py-4 text-center text-gray-500">No players found. Add players using the left panel.</p>`;
                 return;
             }
 
-            list.innerHTML = localPlayers.map(p => {
-                // Apply a softer background row when they are eliminated
+            const query = (document.getElementById('admin-search')?.value || '').trim().toLowerCase();
+            const filter = document.getElementById('admin-filter')?.value || 'all';
+            const sortBy = document.getElementById('admin-sort')?.value || 'name';
+            const isDraftedBy = (pid) => localTeams.some(t => t.players.some(tp => tp.id === pid));
+
+            let rows = localPlayers.filter(p => {
+                if (query && !p.name.toLowerCase().includes(query)) return false;
+                if (filter.startsWith('tier:')) return p.tier === filter.slice(5);
+                if (filter === 'alive') return !p.is_out;
+                if (filter === 'Men' || filter === 'Women') return p.gender === filter;
+                if (filter === 'drafted') return isDraftedBy(p.id);
+                if (filter === 'undrafted') return !isDraftedBy(p.id);
+                return true;
+            });
+
+            if (sortBy === 'wins') {
+                rows = rows.sort((a, b) => (b.wins - a.wins) || a.name.localeCompare(b.name));
+            } else if (sortBy === 'tier') {
+                rows = rows.sort((a, b) =>
+                    ((TIER_ORDER[a.tier] ?? 99) - (TIER_ORDER[b.tier] ?? 99)) ||
+                    ((GENDER_ORDER[a.gender] ?? 99) - (GENDER_ORDER[b.gender] ?? 99)) ||
+                    a.name.localeCompare(b.name));
+            }
+
+            const draftedCount = localPlayers.filter(p => isDraftedBy(p.id)).length;
+            const legacy = localPlayers.filter(p => !ROSTER_TIERS.includes(p.tier)).length;
+            countBox.innerHTML = `Showing ${rows.length} of ${localPlayers.length} · ${draftedCount} drafted · ${localPlayers.filter(p => !p.is_out).length} still alive`
+                + (legacy ? ` · <span class="text-amber-600">${legacy} on retired tiers</span>` : '');
+
+            if (rows.length === 0) {
+                list.innerHTML = `<p class="py-4 text-center text-gray-500">No players match that search.</p>`;
+                return;
+            }
+
+            list.innerHTML = rows.map(p => {
                 let rowBgClass = 'hover:bg-gray-50';
                 if (p.is_out) {
                     rowBgClass = 'bg-gray-100/50 opacity-60 grayscale';
                 } else if (p.is_through) {
-                    rowBgClass = 'bg-green-50/20';
+                    rowBgClass = 'bg-[#E8F0FC]/50';
                 }
+                const staleTier = !ROSTER_TIERS.includes(p.tier);
 
                 return `
                     <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2 rounded-lg transition-colors -mx-2 ${rowBgClass}">
                         <div>
-                            <div class="flex items-center gap-2">
-                                <span class="font-bold text-gray-800 text-base">${p.flag || '🏳️'} ${p.name}</span>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-bold text-gray-800 text-base">${escapeHtml(p.flag || '🏳️')} ${escapeHtml(p.name)}</span>
                                 <div class="flex items-center gap-1.5 ml-1">
                                     <label class="inline-flex items-center cursor-pointer bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
                                         <input type="checkbox" ${p.is_out ? 'checked' : ''} onchange="toggleOutStatus(${p.id}, this.checked)" class="w-3 h-3 text-gray-600 rounded border-gray-300">
                                         <span class="ml-1.5 text-[10px] font-bold ${p.is_out ? 'text-gray-600' : 'text-gray-500'} uppercase tracking-wider">Out</span>
                                     </label>
                                     <label class="inline-flex items-center cursor-pointer bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
-                                        <input type="checkbox" ${p.is_through ? 'checked' : ''} onchange="toggleThroughStatus(${p.id}, this.checked)" class="w-3 h-3 text-green-600 rounded border-gray-300">
-                                        <span class="ml-1.5 text-[10px] font-bold ${p.is_through ? 'text-green-600' : 'text-gray-500'} uppercase tracking-wider">Through</span>
+                                        <input type="checkbox" ${p.is_through ? 'checked' : ''} onchange="toggleThroughStatus(${p.id}, this.checked)" class="w-3 h-3 text-[#1560BD] rounded border-gray-300">
+                                        <span class="ml-1.5 text-[10px] font-bold ${p.is_through ? 'text-[#1560BD]' : 'text-gray-500'} uppercase tracking-wider">Through</span>
                                     </label>
                                 </div>
                             </div>
-                            <div class="flex gap-2 items-center text-xs text-gray-500 font-medium mt-1">
-                                <span class="${p.gender === 'Men' ? 'text-blue-600' : 'text-[#5A3A88]'} font-bold">${p.gender}</span>
+                            <div class="flex gap-2 items-center text-xs text-gray-500 font-medium mt-1 flex-wrap">
+                                <span class="${p.gender === 'Men' ? 'text-[#1560BD]' : 'text-[#8A7400]'} font-bold">${escapeHtml(p.gender)}</span>
                                 <span>•</span>
-                                <span>${p.tier}</span>
+                                <select onchange="changeTier(${p.id}, this.value)" class="text-xs font-bold rounded px-1 py-0.5 border cursor-pointer ${staleTier ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-gray-200 text-gray-700'}">
+                                    ${ROSTER_TIERS.map(t => `<option value="${escapeHtml(t)}" ${p.tier === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+                                    ${staleTier ? `<option value="${escapeHtml(p.tier)}" selected>${escapeHtml(p.tier)} (retired)</option>` : ''}
+                                </select>
                                 <span>•</span>
                                 <div class="flex flex-wrap gap-1 ml-1">
                                     ${localTeams.map(t => {
                                         const isDrafted = t.players.some(tp => tp.id === p.id);
                                         return `
                                             <label class="inline-flex items-center bg-white border border-gray-200 px-1.5 py-0.5 rounded text-[10px] cursor-pointer hover:bg-gray-50 shadow-sm transition-colors">
-                                                <input type="checkbox" onchange="toggleTeamAssignment(${p.id}, ${t.id}, this.checked)" ${isDrafted ? 'checked' : ''} class="w-3 h-3 text-[#5A3A88] rounded border-gray-300 mr-1 focus:ring-0">
-                                                <span class="text-gray-700 font-bold">${t.owner_name}</span>
+                                                <input type="checkbox" onchange="toggleTeamAssignment(${p.id}, ${t.id}, this.checked)" ${isDrafted ? 'checked' : ''} class="w-3 h-3 text-[#001E62] rounded border-gray-300 mr-1 focus:ring-0">
+                                                <span class="text-gray-700 font-bold">${escapeHtml(t.owner_name)}</span>
                                             </label>
                                         `;
                                     }).join('')}
@@ -384,10 +847,10 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-3 justify-end">
-                            <span class="text-sm font-mono text-gray-500 uppercase tracking-wider text-[10px] font-bold">Wins: <strong id="admin-win-box-${p.id}" class="text-gray-900 text-base font-black ml-1">${p.wins}</strong></span>
+                            <span class="text-sm text-gray-500 uppercase tracking-wider text-[10px] font-bold">Wins: <strong id="admin-win-box-${p.id}" class="text-gray-900 text-base font-black ml-1 tabnum">${p.wins}</strong></span>
                             <div class="inline-flex rounded-lg border border-gray-200 p-0.5 bg-gray-100 shadow-sm">
                                 <button onclick="modifyWins(${p.id}, -1)" class="px-3 py-1 font-black text-red-500 hover:bg-white hover:shadow-sm rounded transition-all cursor-pointer">-</button>
-                                <button onclick="modifyWins(${p.id}, 1)" class="px-3 py-1 font-black text-[#12794D] hover:bg-white hover:shadow-sm rounded transition-all cursor-pointer">+</button>
+                                <button onclick="modifyWins(${p.id}, 1)" class="px-3 py-1 font-black text-[#001E62] hover:bg-white hover:shadow-sm rounded transition-all cursor-pointer">+</button>
                             </div>
                         </div>
                     </div>
@@ -395,11 +858,100 @@
             }).join('');
         }
 
-        // --- 6. ADMIN INTERACTIONS ---
+        // --- 9. CELEBRATION + SHARING ---
+        function checkForChampions() {
+            const champs = localPlayers.filter(p => p.wins >= MAX_WINS);
+            const banner = document.getElementById('champion-banner');
+
+            if (champs.length === 0) {
+                banner.className = 'hidden';
+                banner.innerHTML = '';
+                return;
+            }
+
+            const owners = champs.map(c => {
+                const t = localTeams.filter(t => t.players.some(tp => tp.id === c.id)).map(t => t.owner_name);
+                return `${c.flag || '🏳️'} ${c.name}${t.length ? ` — drafted by ${t.join(', ')}` : ''}`;
+            });
+
+            banner.className = 'bg-[#F2E63C] border-b-2 border-[#001E62] pop-in';
+            banner.innerHTML = `
+                <div class="max-w-6xl mx-auto px-4 py-3 text-center">
+                    <span class="font-display text-[#001E62] uppercase text-sm sm:text-base">🏆 US Open Champion: ${owners.map(escapeHtml).join(' &nbsp;·&nbsp; ')}</span>
+                </div>
+            `;
+
+            champs.forEach(c => {
+                if (!celebratedChampions.has(c.id)) {
+                    celebratedChampions.add(c.id);
+                    fireConfetti();
+                }
+            });
+        }
+
+        function fireConfetti() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const colors = ['#001E62', '#1560BD', '#F2E63C', '#ffffff', '#B9D2F2'];
+            for (let i = 0; i < 70; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + 'vw';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.animationDuration = (2.5 + Math.random() * 2) + 's';
+                piece.style.animationDelay = (Math.random() * 0.6) + 's';
+                document.body.appendChild(piece);
+                setTimeout(() => piece.remove(), 5200);
+            }
+        }
+
+        async function flashButton(btn, msg, fallback) {
+            btn.textContent = msg;
+            setTimeout(() => { btn.textContent = fallback; }, 2000);
+        }
+
+        async function copyStandings() {
+            const standings = buildStandings();
+            if (standings.length === 0) return;
+            const medals = ['🥇', '🥈', '🥉'];
+            const lines = ['🎾 MAJOR PREDICT-IMENT — US OPEN 2026', ''];
+            standings.forEach((t, i) => {
+                lines.push(`${medals[i] || (i + 1) + '.'} ${t.name} — ${t.points} pts (${t.remaining}/${t.total} alive, ceiling ${t.ceiling})`);
+            });
+            lines.push('', 'Updated ' + new Date().toLocaleString());
+
+            const btn = document.getElementById('copy-btn');
+            try {
+                await navigator.clipboard.writeText(lines.join('\n'));
+                flashButton(btn, '✅ Copied!', '📋 Copy for group chat');
+            } catch (err) {
+                console.error(err);
+                flashButton(btn, '⚠️ Copy failed', '📋 Copy for group chat');
+            }
+        }
+
+        // Writes a HALL_OF_FAME line for whoever is currently top of the table.
+        async function copyChampionLine() {
+            const btn = document.getElementById('crown-btn');
+            const standings = buildStandings();
+            if (standings.length === 0) { flashButton(btn, 'No standings', 'Copy champion line'); return; }
+
+            const champ = standings[0];
+            const line = `            { tournament: "US Open", year: ${new Date().getFullYear()}, winner: "${champ.name.replace(/"/g, '\\"')}", points: ${champ.points}, note: "" },`;
+            try {
+                await navigator.clipboard.writeText(line);
+                flashButton(btn, `✅ Copied ${champ.name}`, 'Copy champion line');
+            } catch (err) {
+                console.error(err);
+                prompt('Copy this line into HALL_OF_FAME:', line.trim());
+                flashButton(btn, 'Copy champion line', 'Copy champion line');
+            }
+        }
+
+        // --- 10. ADMIN INTERACTIONS ---
         async function modifyWins(playerId, change) {
             const winLabel = document.getElementById(`admin-win-box-${playerId}`);
             let currentWins = parseInt(winLabel.innerText);
-            let nextWins = Math.max(0, currentWins + change);
+            let nextWins = Math.min(MAX_WINS, Math.max(0, currentWins + change));
 
             const { error } = await dbClient.from('players').update({ wins: nextWins }).eq('id', playerId);
             if (error) {
@@ -408,6 +960,17 @@
                 winLabel.innerText = nextWins;
                 let pIndex = localPlayers.findIndex(p => p.id === playerId);
                 if (pIndex !== -1) localPlayers[pIndex].wins = nextWins;
+                localTeams.forEach(t => t.players.forEach(tp => { if (tp.id === playerId) tp.wins = nextWins; }));
+            }
+        }
+
+        async function changeTier(playerId, tier) {
+            const { error } = await dbClient.from('players').update({ tier }).eq('id', playerId);
+            if (error) {
+                alert("Could not update tier.");
+            } else {
+                await fetchCoreData();
+                renderCurrentView();
             }
         }
 
@@ -422,11 +985,8 @@
                     .eq('player_id', playerId);
                 if (error) alert("Failed to remove player from team.");
             }
-            
-            fetchCoreData().then(() => {
-                if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminHub();
-                if (!document.getElementById('view-teams').classList.contains('hidden')) renderTeams();
-            });
+
+            fetchCoreData().then(() => renderCurrentView());
         }
 
         async function toggleOutStatus(playerId, isOut) {
@@ -434,13 +994,7 @@
             if (error) {
                 alert("Could not update elimination status.");
             } else {
-                let pIndex = localPlayers.findIndex(p => p.id === playerId);
-                if (pIndex !== -1) localPlayers[pIndex].is_out = isOut;
-                
-                fetchCoreData().then(() => {
-                    if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminHub();
-                    if (!document.getElementById('view-teams').classList.contains('hidden')) renderTeams();
-                });
+                fetchCoreData().then(() => renderCurrentView());
             }
         }
 
@@ -449,13 +1003,35 @@
             if (error) {
                 alert("Could not update advancement status.");
             } else {
-                let pIndex = localPlayers.findIndex(p => p.id === playerId);
-                if (pIndex !== -1) localPlayers[pIndex].is_through = isThrough;
-                
-                fetchCoreData().then(() => {
-                    if (!document.getElementById('view-admin').classList.contains('hidden')) renderAdminHub();
-                    if (!document.getElementById('view-teams').classList.contains('hidden')) renderTeams();
-                });
+                fetchCoreData().then(() => renderCurrentView());
+            }
+        }
+
+        // Rollover helpers — both are guarded by a typed confirmation.
+        async function resetAllScores() {
+            if (prompt('This sets EVERY player back to 0 wins and clears out/through. Type RESET to confirm:') !== 'RESET') return;
+            const { error } = await dbClient.from('players')
+                .update({ wins: 0, is_out: false, is_through: false })
+                .gte('id', 0);
+            if (error) {
+                alert('Reset failed: ' + error.message);
+            } else {
+                celebratedChampions = new Set();
+                await fetchCoreData();
+                renderCurrentView();
+                alert('All scores reset. Ready for a fresh draw.');
+            }
+        }
+
+        async function clearAllRosters() {
+            if (prompt('This removes every player from every team (players themselves are kept). Type CLEAR to confirm:') !== 'CLEAR') return;
+            const { error } = await dbClient.from('team_rosters').delete().gte('player_id', 0);
+            if (error) {
+                alert('Roster clear failed: ' + error.message);
+            } else {
+                await fetchCoreData();
+                renderCurrentView();
+                alert('All rosters cleared. Time to draft.');
             }
         }
 
@@ -477,7 +1053,7 @@
 
         // Initialize on Load (Defaults to the Rules View)
         switchView('rules');
-
+        startAutoRefresh();
     </script>
 </body>
 </html>
