@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -224,6 +225,7 @@
                         <div class="space-y-2">
                             <button onclick="resetAllScores()" class="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer">Reset all wins &amp; statuses</button>
                             <button onclick="clearAllRosters()" class="w-full bg-white hover:bg-red-50 text-red-600 border border-red-200 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer">Clear every roster</button>
+                            <button onclick="clearAllSnapshots()" class="w-full bg-white hover:bg-red-50 text-red-600 border border-red-200 font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer">Clear round snapshots</button>
                         </div>
                     </div>
                 </div>
@@ -232,6 +234,14 @@
                     <h3 class="font-display text-lg mb-1 text-[#001E62] uppercase">🎾 Live Match Win Tracker</h3>
                     <p class="text-sm text-gray-500 mb-4">Manage wins, assignments, and elimination status.</p>
                     <div id="draft-status" class="mb-4"></div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-4 border-b border-gray-100">
+                        <div>
+                            <h4 class="text-xs font-black uppercase tracking-wider text-gray-500">📸 Round Snapshot</h4>
+                            <p class="text-[11px] text-gray-500 mt-0.5">Locks in this moment's rank &amp; points so the Leaderboard can show trend arrows.</p>
+                        </div>
+                        <button onclick="saveRoundSnapshot()" class="bg-[#001E62] hover:bg-[#10428F] text-white font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap">Save Snapshot</button>
+                    </div>
                     <div class="flex flex-wrap gap-2 mb-3 border-b border-gray-100 pb-4">
                         <input type="text" id="admin-search" oninput="renderAdminHub()" placeholder="Search players…" class="flex-1 min-w-[160px] bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1560BD]">
                         <select id="admin-filter" onchange="renderAdminHub()" class="bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#1560BD]">
@@ -290,17 +300,24 @@
         };
         const DEFAULT_TOURNAMENT_STYLE = { emoji: "🏆", bg: "#374151", ink: "#ffffff" };
 
+        // Single source of truth for "which tournament is this" — used to tag
+        // round snapshots and to pre-fill the Hall of Fame champion line, so
+        // both stay in sync without hunting down hardcoded strings.
+        const CURRENT_TOURNAMENT = "US Open";
+        const CURRENT_YEAR = 2026;
+
         // --- ROSTER RULES: 8 players, 4 men + 4 women, one per tier ---
         const ROSTER_GENDERS = ["Men", "Women"];
         const ROSTER_TIERS = ["Top 5", "6-15", "16-25", "Rest of Field"];
         const PER_TIER_SLOTS = 1;                 // one player per gender per tier
         const ROSTER_SIZE = ROSTER_GENDERS.length * ROSTER_TIERS.length * PER_TIER_SLOTS;
 
-        // Sort weights. The trailing entries are the retired Wimbledon tiers, kept
-        // so any player rows left over from a previous tournament still sort sanely.
+        // Sort weights. The trailing entries are retired tier labels, kept so any
+        // player rows left over from an earlier tournament still sort sanely.
         const TIER_ORDER = {
             "Top 5": 1, "6-15": 2, "16-25": 3, "Rest of Field": 4,
-            "Top 10": 1.5, "Top 25": 2.5,
+            "5-15": 2, "15-25": 3,      // retired: superseded by 6-15 / 16-25
+            "Top 10": 1.5, "Top 25": 2.5, // retired: Wimbledon tiers
         };
         const GENDER_ORDER = { "Women": 1, "Men": 2 };
 
@@ -309,6 +326,7 @@
 
         let localPlayers = [];
         let localTeams = [];
+        let localSnapshots = [];
         let currentView = 'rules';
         let refreshTimer = null;
         let celebratedChampions = new Set();
@@ -481,11 +499,61 @@
             }
             localPlayers = players;
             localTeams = teams;
+            await fetchSnapshots();
 
             const stamp = document.getElementById('last-updated');
             if (stamp) {
                 stamp.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
             }
+        }
+
+        // Round snapshots power the trend arrows on the Leaderboard. The table
+        // is optional infrastructure — if it hasn't been created yet in Supabase,
+        // degrade quietly (no arrows) instead of breaking the rest of the app.
+        async function fetchSnapshots() {
+            const { data, error } = await dbClient.from('snapshots')
+                .select('*')
+                .eq('tournament', CURRENT_TOURNAMENT)
+                .eq('year', CURRENT_YEAR)
+                .order('created_at', { ascending: true });
+            if (error) {
+                console.warn('Snapshots unavailable (has the `snapshots` table been created?):', error.message);
+                localSnapshots = [];
+                return;
+            }
+            localSnapshots = data || [];
+        }
+
+        function snapshotsForTeam(teamId) {
+            return localSnapshots.filter(s => s.team_id === teamId);
+        }
+
+        // Snapshots are fetched ordered by created_at ascending, so the last
+        // entry for a team is always its most recently saved round.
+        function lastSnapshotForTeam(teamId) {
+            const rows = snapshotsForTeam(teamId);
+            return rows.length ? rows[rows.length - 1] : null;
+        }
+
+        // Rank movement (▲/▼) since the last saved snapshot, plus points banked
+        // since then. Rank, not raw points, is the number people actually care
+        // about — points only ever go up, but position swings both ways.
+        function renderTrendArrow(team, currentRank) {
+            const last = lastSnapshotForTeam(team.id);
+            if (!last) return '';
+
+            const rankDelta = last.rank - currentRank;
+            const ptsDelta = team.points - last.points;
+            const history = snapshotsForTeam(team.id)
+                .map(s => `${s.round}: rank ${s.rank}, ${s.points}pts`).join(' · ');
+
+            let arrow = '–', colorClass = 'text-gray-400';
+            if (rankDelta > 0) { arrow = `▲${rankDelta}`; colorClass = 'text-green-600'; }
+            else if (rankDelta < 0) { arrow = `▼${Math.abs(rankDelta)}`; colorClass = 'text-red-500'; }
+
+            return `<span class="inline-flex items-center gap-1 text-[11px] font-bold ${colorClass}" title="${escapeHtml(history)}">
+                ${arrow}<span class="text-gray-400 font-semibold">· +${ptsDelta}pts since ${escapeHtml(last.round)}</span>
+            </span>`;
         }
 
         // Quietly re-pull data so scores update without anyone hitting refresh.
@@ -534,6 +602,45 @@
                 </tr>`;
         }
 
+        // Only one player wins each draw, so ties on win-count are the normal
+        // state, not an edge case — a plain sort()[0] would silently pick an
+        // arbitrary name. These helpers surface the tie instead of hiding it.
+        function tiedLeaderTeams(standings) {
+            const leaderPts = standings[0].points;
+            return { leaderPts, tied: standings.filter(s => s.points === leaderPts) };
+        }
+
+        function topPickForGender(gender) {
+            const drafted = localPlayers.filter(p =>
+                p.gender === gender && p.wins > 0 && localTeams.some(t => t.players.some(tp => tp.id === p.id)));
+            if (drafted.length === 0) return null;
+            const maxWins = Math.max(...drafted.map(p => p.wins));
+            const tied = drafted.filter(p => p.wins === maxWins).sort((a, b) => a.name.localeCompare(b.name));
+            return { wins: maxWins, points: calculatePoints(maxWins), tied };
+        }
+
+        function renderTopPickRow(gender, label, accentClass) {
+            const info = topPickForGender(gender);
+            if (!info) {
+                return `<div class="flex justify-between items-center gap-2">
+                    <span class="text-[10px] font-black ${accentClass} uppercase tracking-wider">${label}</span>
+                    <span class="text-xs text-gray-400 italic">no wins yet</span>
+                </div>`;
+            }
+            if (info.tied.length === 1) {
+                const p = info.tied[0];
+                return `<div class="flex justify-between items-center gap-2">
+                    <span class="text-[10px] font-black ${accentClass} uppercase tracking-wider">${label}</span>
+                    <span class="text-sm font-bold text-[#001E62] truncate">${escapeHtml(p.flag || '🏳️')} ${escapeHtml(p.name)} <span class="text-gray-400 font-semibold tabnum">${info.points}pts</span></span>
+                </div>`;
+            }
+            const names = info.tied.map(p => `${p.flag || '🏳️'} ${p.name}`).join(', ');
+            return `<div class="flex justify-between items-center gap-2" title="${escapeHtml(names)}">
+                <span class="text-[10px] font-black ${accentClass} uppercase tracking-wider">${label}</span>
+                <span class="text-sm font-bold text-[#001E62]">${info.tied.length}-way tie <span class="text-gray-400 font-semibold tabnum">· ${info.points}pts</span></span>
+            </div>`;
+        }
+
         function renderLeaderboard() {
             const standings = buildStandings();
             const tbody = document.getElementById('leaderboard-rows');
@@ -545,22 +652,29 @@
                 return;
             }
 
-            const leaderPts = standings[0].points;
+            const { leaderPts, tied: tiedLeaders } = tiedLeaderTeams(standings);
+            const nextBelow = standings.find(s => s.points < leaderPts);
             const alivePlayers = localPlayers.filter(p => !p.is_out).length;
-            const drafted = localPlayers.filter(p => localTeams.some(t => t.players.some(tp => tp.id === p.id)));
-            const topPlayer = [...drafted].sort((a, b) => b.wins - a.wins)[0];
             const stillMathematicallyAlive = standings.filter(s => s.ceiling >= leaderPts).length;
+
+            const leaderNames = tiedLeaders.map(t => t.name);
+            const leaderHeading = tiedLeaders.length > 1 ? `${tiedLeaders.length}-Way Tie` : 'Current Leader';
+            const leaderBody = tiedLeaders.length > 1
+                ? `<div class="font-display text-lg mt-1 leading-tight" title="${escapeHtml(leaderNames.join(', '))}">${escapeHtml(leaderNames.length <= 3 ? leaderNames.join(' · ') : leaderNames.length + ' managers')}</div>`
+                : `<div class="font-display text-2xl mt-1 leading-tight">${escapeHtml(leaderNames[0])}</div>`;
 
             statsBox.innerHTML = `
                 <div class="bg-[#001E62] text-white rounded-2xl p-5 shadow-sm">
-                    <div class="text-[11px] uppercase tracking-widest text-[#F2E63C] font-bold">Current Leader</div>
-                    <div class="font-display text-2xl mt-1 leading-tight">${escapeHtml(standings[0].name)}</div>
-                    <div class="text-sm text-white/70 font-semibold tabnum">${standings[0].points} pts${(standings.length > 1 && standings[0].points > standings[1].points) ? ` · +${standings[0].points - standings[1].points} on 2nd` : (standings.length > 1 ? ' · tied at the top' : '')}</div>
+                    <div class="text-[11px] uppercase tracking-widest text-[#F2E63C] font-bold">${leaderHeading}</div>
+                    ${leaderBody}
+                    <div class="text-sm text-white/70 font-semibold tabnum">${leaderPts} pts${nextBelow ? ` · +${leaderPts - nextBelow.points} on next` : ''}</div>
                 </div>
                 <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                    <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Top Scoring Pick</div>
-                    <div class="font-display text-2xl mt-1 leading-tight text-[#001E62]">${(topPlayer && topPlayer.wins > 0) ? escapeHtml((topPlayer.flag || '🏳️') + ' ' + topPlayer.name) : 'Nobody yet'}</div>
-                    <div class="text-sm text-gray-500 font-semibold tabnum">${(topPlayer && topPlayer.wins > 0) ? `${topPlayer.wins} ${topPlayer.wins === 1 ? 'win' : 'wins'} · ${calculatePoints(topPlayer.wins)} pts` : 'First ball not struck'}</div>
+                    <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-2.5">Top Scoring Picks</div>
+                    <div class="space-y-2.5">
+                        ${renderTopPickRow('Men', 'Men', 'text-[#1560BD]')}
+                        ${renderTopPickRow('Women', 'Women', 'text-[#8A7400]')}
+                    </div>
                 </div>
                 <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
                     <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Still In It</div>
@@ -581,6 +695,7 @@
                         ${escapeHtml(team.name)}
                         ${eliminated ? '<span class="ml-2 text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-black uppercase">Eliminated</span>' : ''}
                         <span class="block text-[11px] text-gray-400 font-semibold">tap for roster <span class="sm:hidden">· ceiling ${team.ceiling}</span></span>
+                        <span class="block mt-0.5">${renderTrendArrow(team, idx + 1)}</span>
                     </td>
                     <td class="py-4 px-2 text-center">
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tabnum ${team.remaining === 0 ? 'bg-gray-200 text-gray-500' : 'bg-[#E8F0FC] text-[#001E62]'}">
@@ -913,9 +1028,15 @@
             const standings = buildStandings();
             if (standings.length === 0) return;
             const medals = ['🥇', '🥈', '🥉'];
-            const lines = ['🎾 MAJOR PREDICT-IMENT — US OPEN 2026', ''];
+            const lines = [`🎾 MAJOR PREDICT-IMENT — ${CURRENT_TOURNAMENT.toUpperCase()} ${CURRENT_YEAR}`, ''];
             standings.forEach((t, i) => {
-                lines.push(`${medals[i] || (i + 1) + '.'} ${t.name} — ${t.points} pts (${t.remaining}/${t.total} alive, ceiling ${t.ceiling})`);
+                const last = lastSnapshotForTeam(t.id);
+                let trend = '';
+                if (last) {
+                    const d = last.rank - (i + 1);
+                    trend = d > 0 ? ` (▲${d})` : d < 0 ? ` (▼${Math.abs(d)})` : ' (–)';
+                }
+                lines.push(`${medals[i] || (i + 1) + '.'} ${t.name} — ${t.points} pts (${t.remaining}/${t.total} alive, ceiling ${t.ceiling})${trend}`);
             });
             lines.push('', 'Updated ' + new Date().toLocaleString());
 
@@ -936,7 +1057,7 @@
             if (standings.length === 0) { flashButton(btn, 'No standings', 'Copy champion line'); return; }
 
             const champ = standings[0];
-            const line = `            { tournament: "US Open", year: ${new Date().getFullYear()}, winner: "${champ.name.replace(/"/g, '\\"')}", points: ${champ.points}, note: "" },`;
+            const line = `            { tournament: "${CURRENT_TOURNAMENT}", year: ${CURRENT_YEAR}, winner: "${champ.name.replace(/"/g, '\\"')}", points: ${champ.points}, note: "" },`;
             try {
                 await navigator.clipboard.writeText(line);
                 flashButton(btn, `✅ Copied ${champ.name}`, 'Copy champion line');
@@ -1004,6 +1125,57 @@
                 alert("Could not update advancement status.");
             } else {
                 fetchCoreData().then(() => renderCurrentView());
+            }
+        }
+
+        // Locks in every team's current rank + points under a round label, so
+        // the Leaderboard can show movement since that moment. Upserts on
+        // (team_id, tournament, year, round) — re-saving the same round label
+        // corrects it instead of creating a duplicate.
+        async function saveRoundSnapshot() {
+            const standings = buildStandings();
+            if (standings.length === 0) { alert('No teams to snapshot yet.'); return; }
+
+            const usedRounds = new Set(
+                standings.flatMap(t => snapshotsForTeam(t.id)).map(s => s.round)
+            );
+            const nextRound = ROUND_LABELS.find(r => !usedRounds.has(r)) || ROUND_LABELS[ROUND_LABELS.length - 1];
+            const label = prompt(`Label this snapshot (e.g. ${ROUND_LABELS.join(', ')}):`, nextRound);
+            if (!label) return;
+
+            const rows = standings.map((team, idx) => ({
+                team_id: team.id,
+                tournament: CURRENT_TOURNAMENT,
+                year: CURRENT_YEAR,
+                round: label,
+                rank: idx + 1,
+                points: team.points
+            }));
+
+            const { error } = await dbClient.from('snapshots')
+                .upsert(rows, { onConflict: 'team_id,tournament,year,round' });
+
+            if (error) {
+                alert('Could not save snapshot: ' + error.message + '\n\nHas the `snapshots` table been created yet? See the setup SQL.');
+            } else {
+                await fetchSnapshots();
+                renderCurrentView();
+                alert(`Snapshot "${label}" saved for all ${rows.length} teams.`);
+            }
+        }
+
+        async function clearAllSnapshots() {
+            if (prompt(`This deletes every saved round snapshot for ${CURRENT_TOURNAMENT} ${CURRENT_YEAR} (trend arrows reset). Type CLEAR to confirm:`) !== 'CLEAR') return;
+            const { error } = await dbClient.from('snapshots')
+                .delete()
+                .eq('tournament', CURRENT_TOURNAMENT)
+                .eq('year', CURRENT_YEAR);
+            if (error) {
+                alert('Snapshot clear failed: ' + error.message);
+            } else {
+                await fetchSnapshots();
+                renderCurrentView();
+                alert('Snapshot history cleared.');
             }
         }
 
