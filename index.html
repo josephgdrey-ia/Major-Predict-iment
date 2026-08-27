@@ -124,10 +124,10 @@
 
                 <h3 class="font-display text-lg mb-3 text-[#001E62] border-t border-gray-100 pt-6 uppercase">🔗 Official US Open Draws</h3>
                 <div class="flex flex-col sm:flex-row gap-4">
-                    <a href="https://www.usopen.org/en_US/draws/mens-singles.html" target="_blank" rel="noopener" class="flex-1 bg-[#001E62] hover:bg-[#10428F] text-white font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
+                    <a href="https://www.usopen.org/en_US/scores/draws/ms/index.html" target="_blank" rel="noopener" class="flex-1 bg-[#001E62] hover:bg-[#10428F] text-white font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
                         <span>🎾</span> Men's Singles Draw
                     </a>
-                    <a href="https://www.usopen.org/en_US/draws/womens-singles.html" target="_blank" rel="noopener" class="flex-1 bg-[#1560BD] hover:bg-[#10428F] text-white font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
+                    <a href="https://www.usopen.org/en_US/scores/draws/ws/index.html" target="_blank" rel="noopener" class="flex-1 bg-[#1560BD] hover:bg-[#10428F] text-white font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
                         <span>🎾</span> Women's Singles Draw
                     </a>
                     <a href="https://www.usopen.org/en_US/scores/index.html" target="_blank" rel="noopener" class="flex-1 bg-[#F2E63C] hover:bg-[#e5d81f] text-[#001E62] font-bold py-3 px-4 rounded-xl text-center transition-colors flex justify-center items-center gap-2 uppercase tracking-wide text-sm">
@@ -167,8 +167,12 @@
             </div>
         </section>
 
-        <section id="view-teams" class="view-content hidden">
-            <div id="teams-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section id="view-teams" class="view-content hidden space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-xs text-gray-500">Tap a manager to switch between the roster summary and full detail.</p>
+                <button onclick="toggleAllTeams()" id="expand-all-btn" class="text-xs font-bold uppercase tracking-wider bg-[#001E62] hover:bg-[#10428F] text-white px-3 py-1.5 rounded-lg transition-colors cursor-pointer whitespace-nowrap">▼ Expand all</button>
+            </div>
+            <div id="teams-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             </div>
         </section>
 
@@ -467,19 +471,44 @@
         }
 
         // --- 5. UI TOGGLES ---
-        function toggleTeam(teamId) {
-            const contentDiv = document.getElementById(`content-team-${teamId}`);
-            const icon = document.getElementById(`icon-team-${teamId}`);
+        // Which team cards are showing full detail. Held as state rather than
+        // read off the DOM so the 45s auto-refresh re-render doesn't collapse
+        // a card somebody is in the middle of reading.
+        let expandedTeams = new Set();
 
-            if (contentDiv.classList.contains('hidden')) {
-                contentDiv.classList.remove('hidden');
-                contentDiv.classList.add('block');
-                icon.style.transform = 'rotate(0deg)';
-            } else {
-                contentDiv.classList.remove('block');
-                contentDiv.classList.add('hidden');
-                icon.style.transform = 'rotate(-90deg)';
-            }
+        function applyTeamExpansion(teamId) {
+            const detail = document.getElementById(`content-team-${teamId}`);
+            const chips = document.getElementById(`chips-team-${teamId}`);
+            const icon = document.getElementById(`icon-team-${teamId}`);
+            if (!detail) return;
+
+            const expanded = expandedTeams.has(teamId);
+            detail.classList.toggle('hidden', !expanded);
+            if (chips) chips.classList.toggle('hidden', expanded);
+            if (icon) icon.style.transform = expanded ? 'rotate(0deg)' : 'rotate(-90deg)';
+        }
+
+        function toggleTeam(teamId) {
+            if (expandedTeams.has(teamId)) expandedTeams.delete(teamId);
+            else expandedTeams.add(teamId);
+            applyTeamExpansion(teamId);
+            updateExpandAllButton();
+        }
+
+        function allTeamsExpanded() {
+            return localTeams.length > 0 && localTeams.every(t => expandedTeams.has(t.id));
+        }
+
+        function toggleAllTeams() {
+            if (allTeamsExpanded()) expandedTeams.clear();
+            else localTeams.forEach(t => expandedTeams.add(t.id));
+            localTeams.forEach(t => applyTeamExpansion(t.id));
+            updateExpandAllButton();
+        }
+
+        function updateExpandAllButton() {
+            const btn = document.getElementById('expand-all-btn');
+            if (btn) btn.textContent = allTeamsExpanded() ? '▲ Collapse all' : '▼ Expand all';
         }
 
         function toggleRosterRow(teamId) {
@@ -679,7 +708,7 @@
                 <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
                     <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Still In It</div>
                     <div class="font-display text-2xl mt-1 leading-tight text-[#001E62] tabnum">${stillMathematicallyAlive} / ${standings.length}</div>
-                    <div class="text-sm text-gray-500 font-semibold tabnum">${alivePlayers} drafted players left in the draw</div>
+                    <div class="text-sm text-gray-500 font-semibold tabnum">${alivePlayers} players left in the draw</div>
                 </div>
             `;
 
@@ -755,7 +784,20 @@
 
                         <div class="mt-3">${rosterBadge(team)}</div>
 
-                        <div id="content-team-${team.id}" class="space-y-2.5 mt-4 block transition-all duration-300 origin-top">
+                        <div id="chips-team-${team.id}" class="flex flex-wrap gap-1.5 mt-3">
+                            ${sortedPlayers.length === 0 ? '<div class="text-xs text-gray-400 italic py-1">No players drafted yet.</div>' : ''}
+                            ${sortedPlayers.map(p => `
+                                <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-lg border ${p.is_out ? 'bg-gray-100 border-gray-200 text-gray-400 line-through' : (p.is_through ? 'bg-[#E8F0FC] border-[#B9D2F2] text-[#001E62]' : 'bg-white border-[#DCE7F7] text-[#001E62]')}"
+                                      title="${escapeHtml(p.gender + ' · ' + p.tier + ' · ' + p.wins + (p.wins === 1 ? ' win' : ' wins'))}">
+                                    <span>${escapeHtml(p.flag || '🏳️')}</span>
+                                    <span>${escapeHtml(p.name)}</span>
+                                    ${p.wins >= MAX_WINS ? '<span>🏆</span>' : ''}
+                                    <span class="tabnum ${p.is_out ? 'text-gray-400' : 'text-[#1560BD]'}">${calculatePoints(p.wins)}</span>
+                                </span>
+                            `).join('')}
+                        </div>
+
+                        <div id="content-team-${team.id}" class="space-y-2.5 mt-4 hidden transition-all duration-300 origin-top">
                             ${sortedPlayers.length === 0 ? '<div class="text-xs text-gray-400 italic p-2 text-center">No players drafted yet.</div>' : ''}
                             ${sortedPlayers.map(p => {
                                 let cardStyleClass = 'bg-gray-50 border-gray-100';
@@ -806,6 +848,10 @@
                     </div>
                 `;
             }).join('');
+
+            // Re-apply expansion state — innerHTML above rebuilt every card.
+            localTeams.forEach(t => applyTeamExpansion(t.id));
+            updateExpandAllButton();
         }
 
         function renderHallOfFame() {
