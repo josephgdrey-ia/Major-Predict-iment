@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -138,7 +137,7 @@
         </section>
 
         <section id="view-leaderboard" class="view-content hidden space-y-6">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="league-stats"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="league-stats"></div>
 
             <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                 <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
@@ -197,6 +196,10 @@
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Flag Emoji</label>
                             <input type="text" id="new-player-flag" placeholder="e.g. 🇺🇸" required class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1560BD] focus:border-transparent transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Seed <span class="text-gray-400 normal-case font-semibold">(blank = unseeded)</span></label>
+                            <input type="number" id="new-player-seed" min="1" max="128" placeholder="e.g. 1" class="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#1560BD] focus:border-transparent transition-all">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Gender</label>
@@ -378,6 +381,80 @@
             return total;
         }
 
+        // --- SEEDS ---
+        // seed is nullable: only 32 of the 128 in each draw are seeded, so an
+        // empty seed means unseeded rather than missing data.
+        const UNSEEDED_RANK = 33;   // used only when averaging, just past the 32 seed lines
+
+        function seedOf(player) {
+            const s = Number(player.seed);
+            return Number.isFinite(s) && s > 0 ? s : null;
+        }
+
+        // "Chalk": how far each seed line reaches in a 128 draw if every seed
+        // holds — 1&2 meet in the final, 1-4 in the semis, 1-8 in the quarters,
+        // and so on. Unseeded players are only expected to win their opener.
+        function expectedWins(player) {
+            const s = seedOf(player);
+            if (s === null) return 1;
+            if (s <= 2) return 6;
+            if (s <= 4) return 5;
+            if (s <= 8) return 4;
+            if (s <= 16) return 3;
+            if (s <= 32) return 2;
+            return 1;
+        }
+
+        // Wins above (or below) what the draw position predicted.
+        function seedDelta(player) {
+            return player.wins - expectedWins(player);
+        }
+
+        function seedBadge(player, opts = {}) {
+            const s = seedOf(player);
+            if (s === null) {
+                return opts.showUnseeded
+                    ? `<span class="inline-flex items-center justify-center px-1 py-0.5 rounded bg-gray-100 text-gray-400 text-[9px] font-black leading-none" title="Unseeded">UNS</span>`
+                    : '';
+            }
+            const tone = player.is_out ? 'bg-gray-300 text-gray-600' : 'bg-[#001E62] text-white';
+            return `<span class="inline-flex items-center justify-center min-w-[1.15rem] px-1 py-0.5 rounded ${tone} text-[10px] font-black tabnum leading-none" title="Seed ${s}">${s}</span>`;
+        }
+
+        // Small ▲/▼ showing a player beating or missing their seed's expectation.
+        function seedDeltaBadge(player) {
+            if (player.wins === 0 && !player.is_out) return '';   // nothing to judge yet
+            const d = seedDelta(player);
+            if (d === 0) return '';
+            const cls = d > 0 ? 'text-green-600' : 'text-red-500';
+            const label = d > 0 ? `▲${d}` : `▼${Math.abs(d)}`;
+            const expl = `${player.wins} ${player.wins === 1 ? 'win' : 'wins'} vs ${expectedWins(player)} expected for ${seedOf(player) === null ? 'an unseeded player' : 'seed ' + seedOf(player)}`;
+            return `<span class="text-[10px] font-black ${cls} tabnum" title="${escapeHtml(expl)}">${label}</span>`;
+        }
+
+        function teamSeedStats(team) {
+            if (team.players.length === 0) return null;
+            const seeds = team.players.map(seedOf);
+            const seededCount = seeds.filter(s => s !== null).length;
+            const avg = seeds.reduce((sum, s) => sum + (s ?? UNSEEDED_RANK), 0) / seeds.length;
+            const value = team.players.reduce((sum, p) => sum + seedDelta(p), 0);
+            return { avg, seededCount, unseededCount: seeds.length - seededCount, value };
+        }
+
+        // The drafted player most exceeding their seed's expectation.
+        function biggestSteal() {
+            const drafted = localPlayers.filter(p =>
+                localTeams.some(t => t.players.some(tp => tp.id === p.id)));
+            const scored = drafted.filter(p => seedDelta(p) > 0);
+            if (scored.length === 0) return null;
+            const best = Math.max(...scored.map(seedDelta));
+            const tied = scored.filter(p => seedDelta(p) === best)
+                .sort((a, b) => (seedOf(b) ?? UNSEEDED_RANK) - (seedOf(a) ?? UNSEEDED_RANK));
+            const owners = localTeams.filter(t => t.players.some(tp => tp.id === tied[0].id))
+                .map(t => t.owner_name);
+            return { player: tied[0], delta: best, tiedCount: tied.length, owners };
+        }
+
         function escapeHtml(str) {
             return String(str ?? '').replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -520,7 +597,9 @@
         // --- 6. DATA FETCHING ---
         async function fetchCoreData() {
             const { data: players, error: pErr } = await dbClient.from('players').select('*').order('name', { ascending: true });
-            const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(id, name, gender, tier, wins, flag, is_out, is_through)');
+            // players(*) rather than a column list: new columns (like seed) flow
+            // through automatically, and a not-yet-added one can't break the query.
+            const { data: teams, error: tErr } = await dbClient.from('teams').select('id, owner_name, players(*)');
 
             if (pErr || tErr) {
                 console.error("Database error:", pErr || tErr);
@@ -710,6 +789,25 @@
                     <div class="font-display text-2xl mt-1 leading-tight text-[#001E62] tabnum">${stillMathematicallyAlive} / ${standings.length}</div>
                     <div class="text-sm text-gray-500 font-semibold tabnum">${alivePlayers} players left in the draw</div>
                 </div>
+                ${(() => {
+                    const steal = biggestSteal();
+                    if (!steal) {
+                        return `<div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                            <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Biggest Steal</div>
+                            <div class="font-display text-2xl mt-1 leading-tight text-[#001E62]">Nobody yet</div>
+                            <div class="text-sm text-gray-500 font-semibold">No pick has beaten its seed</div>
+                        </div>`;
+                    }
+                    const p = steal.player;
+                    const seedTxt = seedOf(p) === null ? 'unseeded' : 'seed ' + seedOf(p);
+                    return `<div class="bg-white border-2 border-green-200 rounded-2xl p-5 shadow-sm">
+                        <div class="text-[11px] uppercase tracking-widest text-green-600 font-bold">Biggest Steal</div>
+                        <div class="font-display text-xl mt-1 leading-tight text-[#001E62] truncate" title="${escapeHtml(p.name)}">${escapeHtml((p.flag || '🏳️') + ' ' + p.name)}</div>
+                        <div class="text-sm text-gray-500 font-semibold tabnum">
+                            <span class="text-green-600 font-bold">▲${steal.delta}</span> vs ${escapeHtml(seedTxt)}${steal.owners.length ? ' · ' + escapeHtml(steal.owners.join(', ')) : ''}
+                        </div>
+                    </div>`;
+                })()}
             `;
 
             const medals = ['🥇', '🥈', '🥉'];
@@ -782,16 +880,36 @@
                             </div>
                         </div>
 
-                        <div class="mt-3">${rosterBadge(team)}</div>
+                        <div class="mt-3 flex flex-wrap items-center gap-1.5">
+                            ${rosterBadge(team)}
+                            ${(() => {
+                                const s = teamSeedStats(team);
+                                if (!s) return '';
+                                const valueTone = s.value > 0 ? 'bg-green-50 border-green-200 text-green-700'
+                                                : s.value < 0 ? 'bg-red-50 border-red-200 text-red-600'
+                                                : 'bg-gray-50 border-gray-200 text-gray-500';
+                                return `
+                                    <span class="text-[10px] font-black uppercase tracking-wider bg-gray-50 border border-gray-200 text-gray-600 px-2 py-0.5 rounded tabnum"
+                                          title="${s.seededCount} seeded, ${s.unseededCount} unseeded (unseeded counted as ${UNSEEDED_RANK})">
+                                        Avg seed ${s.avg.toFixed(1)}
+                                    </span>
+                                    <span class="text-[10px] font-black uppercase tracking-wider border px-2 py-0.5 rounded tabnum ${valueTone}"
+                                          title="Total wins above or below what each player's seed predicted">
+                                        Value ${s.value > 0 ? '+' : ''}${s.value}
+                                    </span>`;
+                            })()}
+                        </div>
 
                         <div id="chips-team-${team.id}" class="flex flex-wrap gap-1.5 mt-3">
                             ${sortedPlayers.length === 0 ? '<div class="text-xs text-gray-400 italic py-1">No players drafted yet.</div>' : ''}
                             ${sortedPlayers.map(p => `
                                 <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-lg border ${p.is_out ? 'bg-gray-100 border-gray-200 text-gray-400 line-through' : (p.is_through ? 'bg-[#E8F0FC] border-[#B9D2F2] text-[#001E62]' : 'bg-white border-[#DCE7F7] text-[#001E62]')}"
-                                      title="${escapeHtml(p.gender + ' · ' + p.tier + ' · ' + p.wins + (p.wins === 1 ? ' win' : ' wins'))}">
+                                      title="${escapeHtml(p.gender + ' · ' + p.tier + ' · ' + (seedOf(p) === null ? 'unseeded' : 'seed ' + seedOf(p)) + ' · ' + p.wins + (p.wins === 1 ? ' win' : ' wins'))}">
+                                    ${seedBadge(p)}
                                     <span>${escapeHtml(p.flag || '🏳️')}</span>
                                     <span>${escapeHtml(p.name)}</span>
                                     ${p.wins >= MAX_WINS ? '<span>🏆</span>' : ''}
+                                    ${seedDeltaBadge(p)}
                                     <span class="tabnum ${p.is_out ? 'text-gray-400' : 'text-[#1560BD]'}">${calculatePoints(p.wins)}</span>
                                 </span>
                             `).join('')}
@@ -824,6 +942,7 @@
                                     <div class="flex justify-between items-center p-3 rounded-xl border ${cardStyleClass}">
                                         <div>
                                             <div class="font-bold flex items-center gap-1.5 flex-wrap ${nameStyleClass}">
+                                                ${seedBadge(p)}
                                                 <span>${escapeHtml(p.flag || '🏳️')}</span>
                                                 <span>${escapeHtml(p.name)}</span>
                                                 ${p.wins >= MAX_WINS ? '<span class="text-[10px] bg-[#F2E63C] text-[#001E62] px-1.5 py-0.5 rounded font-black ml-1">CHAMPION 🏆</span>' : ''}
@@ -834,8 +953,10 @@
                                                 <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-[#E8F0FC] text-[#1560BD] border border-[#B9D2F2]' : 'bg-[#FCF7DA] text-[#8A7400] border border-[#EFE39B]'}">${escapeHtml(p.gender)}</span>
                                                 <span>•</span>
                                                 <span>${escapeHtml(p.tier)}</span>
+                                                <span>•</span>
+                                                <span>${seedOf(p) === null ? 'unseeded' : 'seed ' + seedOf(p)}</span>
                                             </div>
-                                            <div class="mt-1.5">${roundDots(p.wins, p.is_out)}</div>
+                                            <div class="mt-1.5 flex items-center gap-2">${roundDots(p.wins, p.is_out)}${seedDeltaBadge(p)}</div>
                                         </div>
                                         <div class="text-right">
                                             <div class="text-sm font-bold tabnum ${winCountStyleClass}">${p.wins} ${p.wins === 1 ? 'Win' : 'Wins'}</div>
@@ -974,7 +1095,8 @@
                     <div class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2 rounded-lg transition-colors -mx-2 ${rowBgClass}">
                         <div>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <span class="font-bold text-gray-800 text-base">${escapeHtml(p.flag || '🏳️')} ${escapeHtml(p.name)}</span>
+                                <span class="font-bold text-gray-800 text-base inline-flex items-center gap-1.5">${seedBadge(p)}${escapeHtml(p.flag || '🏳️')} ${escapeHtml(p.name)}</span>
+                                ${seedDeltaBadge(p)}
                                 <div class="flex items-center gap-1.5 ml-1">
                                     <label class="inline-flex items-center cursor-pointer bg-white px-2 py-0.5 rounded border border-gray-200 shadow-sm">
                                         <input type="checkbox" ${p.is_out ? 'checked' : ''} onchange="toggleOutStatus(${p.id}, this.checked)" class="w-3 h-3 text-gray-600 rounded border-gray-300">
@@ -993,6 +1115,13 @@
                                     ${ROSTER_TIERS.map(t => `<option value="${escapeHtml(t)}" ${p.tier === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
                                     ${staleTier ? `<option value="${escapeHtml(p.tier)}" selected>${escapeHtml(p.tier)} (retired)</option>` : ''}
                                 </select>
+                                <span>•</span>
+                                <label class="inline-flex items-center gap-1 bg-white border border-gray-200 rounded px-1.5 py-0.5">
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Seed</span>
+                                    <input type="number" min="1" max="128" value="${seedOf(p) ?? ''}" placeholder="—"
+                                           onchange="changeSeed(${p.id}, this.value)"
+                                           class="w-11 text-xs font-bold text-gray-800 tabnum bg-transparent focus:outline-none focus:ring-1 focus:ring-[#1560BD] rounded text-center">
+                                </label>
                                 <span>•</span>
                                 <div class="flex flex-wrap gap-1 ml-1">
                                     ${localTeams.map(t => {
@@ -1131,6 +1260,24 @@
             }
         }
 
+        // Blank clears the seed back to unseeded rather than writing 0.
+        async function changeSeed(playerId, raw) {
+            const trimmed = String(raw).trim();
+            let seed = null;
+            if (trimmed !== '') {
+                const n = Number(trimmed);
+                if (!Number.isFinite(n) || n < 1) { alert('Seed must be a number of 1 or higher, or blank for unseeded.'); return; }
+                seed = Math.round(n);
+            }
+            const { error } = await dbClient.from('players').update({ seed }).eq('id', playerId);
+            if (error) {
+                alert('Could not update seed: ' + error.message);
+            } else {
+                await fetchCoreData();
+                renderCurrentView();
+            }
+        }
+
         async function changeTier(playerId, tier) {
             const { error } = await dbClient.from('players').update({ tier }).eq('id', playerId);
             if (error) {
@@ -1259,8 +1406,10 @@
             const flag = document.getElementById('new-player-flag').value;
             const gender = document.getElementById('new-player-gender').value;
             const tier = document.getElementById('new-player-tier').value;
+            const seedRaw = document.getElementById('new-player-seed').value.trim();
+            const seed = seedRaw === '' ? null : Number(seedRaw);   // blank means unseeded
 
-            const { error } = await dbClient.from('players').insert({ name, flag, gender, tier, wins: 0, is_out: false, is_through: false });
+            const { error } = await dbClient.from('players').insert({ name, flag, gender, tier, seed, wins: 0, is_out: false, is_through: false });
             if (error) {
                 alert("Could not append player records.");
             } else {
