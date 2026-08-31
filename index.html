@@ -498,18 +498,35 @@
             return { avg, seededCount, unseededCount: seeds.length - seededCount, value };
         }
 
-        // The drafted player most exceeding their seed's expectation.
-        function biggestSteal() {
-            const drafted = localPlayers.filter(p =>
-                localTeams.some(t => t.players.some(tp => tp.id === p.id)));
-            const scored = drafted.filter(p => seedDelta(p) > 0);
+        function draftedPlayers() {
+            return localPlayers.filter(p => localTeams.some(t => t.players.some(tp => tp.id === p.id)));
+        }
+
+        // Shared by biggestSteal/biggestFlop: the drafted player furthest from
+        // their seed's expectation in one direction. `better` picks the winner
+        // between two equally-far candidates on a tie.
+        function extremeSeedDelta(want, better) {
+            const scored = draftedPlayers().filter(p => want(seedDelta(p)));
             if (scored.length === 0) return null;
-            const best = Math.max(...scored.map(seedDelta));
+            const best = scored.map(seedDelta).reduce((a, b) => better(a, b) ? a : b);
             const tied = scored.filter(p => seedDelta(p) === best)
                 .sort((a, b) => (seedOf(b) ?? UNSEEDED_RANK) - (seedOf(a) ?? UNSEEDED_RANK));
             const owners = localTeams.filter(t => t.players.some(tp => tp.id === tied[0].id))
                 .map(t => t.owner_name);
             return { player: tied[0], delta: best, tiedCount: tied.length, owners };
+        }
+
+        // The drafted player most exceeding their seed's expectation.
+        function biggestSteal() {
+            return extremeSeedDelta(d => d > 0, (a, b) => a > b);
+        }
+
+        // The drafted player who fell furthest short — only eliminated players
+        // can have a negative delta (seedDelta floors alive players at 0), so
+        // this is naturally "worst bust among the eliminated," not "worst pick
+        // right now" for someone who just hasn't played yet.
+        function biggestFlop() {
+            return extremeSeedDelta(d => d < 0, (a, b) => a < b);
         }
 
         function escapeHtml(str) {
@@ -760,7 +777,7 @@
                     players: team.players,
                     audit: rosterAudit(team)
                 };
-            }).sort((a, b) => (b.points - a.points) || (b.remaining - a.remaining) || (b.ceiling - a.ceiling));
+            }).sort((a, b) => (b.points - a.points) || (b.remaining - a.remaining) || (b.projected - a.projected));
         }
 
         // --- 8. RENDERING ---
@@ -789,34 +806,28 @@
             return { leaderPts, tied: standings.filter(s => s.points === leaderPts) };
         }
 
-        function topPickForGender(gender) {
-            const drafted = localPlayers.filter(p =>
-                p.gender === gender && p.wins > 0 && localTeams.some(t => t.players.some(tp => tp.id === p.id)));
-            if (drafted.length === 0) return null;
-            const maxWins = Math.max(...drafted.map(p => p.wins));
-            const tied = drafted.filter(p => p.wins === maxWins).sort((a, b) => a.name.localeCompare(b.name));
-            return { wins: maxWins, points: calculatePoints(maxWins), tied };
-        }
-
-        function renderTopPickRow(gender, label, accentClass) {
-            const info = topPickForGender(gender);
+        // Shared card renderer for the Biggest Steal / Biggest Flop stat boxes —
+        // same layout, opposite direction and color.
+        function renderExtremeSeedCard(label, info, positive) {
             if (!info) {
-                return `<div class="flex justify-between items-center gap-2">
-                    <span class="text-[10px] font-black ${accentClass} uppercase tracking-wider">${label}</span>
-                    <span class="text-xs text-gray-400 italic">no wins yet</span>
+                return `<div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                    <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">${label}</div>
+                    <div class="font-display text-2xl mt-1 leading-tight text-[#001E62]">Nobody yet</div>
+                    <div class="text-sm text-gray-500 font-semibold">${positive ? 'No pick has beaten its seed' : 'No pick has missed its seed yet'}</div>
                 </div>`;
             }
-            if (info.tied.length === 1) {
-                const p = info.tied[0];
-                return `<div class="flex justify-between items-center gap-2">
-                    <span class="text-[10px] font-black ${accentClass} uppercase tracking-wider">${label}</span>
-                    <span class="text-sm font-bold text-[#001E62] truncate">${escapeHtml(p.flag || '🏳️')} ${escapeHtml(p.name)} <span class="text-gray-400 font-semibold tabnum">${info.points}pts</span></span>
-                </div>`;
-            }
-            const names = info.tied.map(p => `${p.flag || '🏳️'} ${p.name}`).join(', ');
-            return `<div class="flex justify-between items-center gap-2" title="${escapeHtml(names)}">
-                <span class="text-[10px] font-black ${accentClass} uppercase tracking-wider">${label}</span>
-                <span class="text-sm font-bold text-[#001E62]">${info.tied.length}-way tie <span class="text-gray-400 font-semibold tabnum">· ${info.points}pts</span></span>
+            const p = info.player;
+            const seedTxt = seedOf(p) === null ? 'unseeded' : 'seed ' + seedOf(p);
+            const borderCls = positive ? 'border-green-200' : 'border-red-200';
+            const labelCls = positive ? 'text-green-600' : 'text-red-600';
+            const arrowCls = positive ? 'text-green-600' : 'text-red-500';
+            const arrow = positive ? `▲${info.delta}` : `▼${Math.abs(info.delta)}`;
+            return `<div class="bg-white border-2 ${borderCls} rounded-2xl p-5 shadow-sm">
+                <div class="text-[11px] uppercase tracking-widest ${labelCls} font-bold">${label}</div>
+                <div class="font-display text-xl mt-1 leading-tight text-[#001E62] truncate" title="${escapeHtml(p.name)}">${escapeHtml((p.flag || '🏳️') + ' ' + p.name)}</div>
+                <div class="text-sm text-gray-500 font-semibold tabnum">
+                    <span class="${arrowCls} font-bold">${arrow}</span> vs ${escapeHtml(seedTxt)}${info.owners.length ? ' · ' + escapeHtml(info.owners.join(', ')) : ''}
+                </div>
             </div>`;
         }
 
@@ -833,8 +844,8 @@
 
             const { leaderPts, tied: tiedLeaders } = tiedLeaderTeams(standings);
             const nextBelow = standings.find(s => s.points < leaderPts);
-            const alivePlayers = localPlayers.filter(p => !p.is_out).length;
-            const stillMathematicallyAlive = standings.filter(s => s.ceiling >= leaderPts).length;
+            const drafted = draftedPlayers();
+            const draftedAlive = drafted.filter(p => !p.is_out).length;
 
             const leaderNames = tiedLeaders.map(t => t.name);
             const leaderHeading = tiedLeaders.length > 1 ? `${tiedLeaders.length}-Way Tie` : 'Current Leader';
@@ -849,36 +860,12 @@
                     <div class="text-sm text-white/70 font-semibold tabnum">${leaderPts} pts${nextBelow ? ` · +${leaderPts - nextBelow.points} on next` : ''}</div>
                 </div>
                 <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                    <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold mb-2.5">Top Scoring Picks</div>
-                    <div class="space-y-2.5">
-                        ${renderTopPickRow('Men', 'Men', 'text-[#1560BD]')}
-                        ${renderTopPickRow('Women', 'Women', 'text-[#8A7400]')}
-                    </div>
-                </div>
-                <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
                     <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Still In It</div>
-                    <div class="font-display text-2xl mt-1 leading-tight text-[#001E62] tabnum">${stillMathematicallyAlive} / ${standings.length}</div>
-                    <div class="text-sm text-gray-500 font-semibold tabnum">${alivePlayers} players left in the draw</div>
+                    <div class="font-display text-2xl mt-1 leading-tight text-[#001E62] tabnum">${draftedAlive} / ${drafted.length}</div>
+                    <div class="text-sm text-gray-500 font-semibold">drafted players remaining in the draw</div>
                 </div>
-                ${(() => {
-                    const steal = biggestSteal();
-                    if (!steal) {
-                        return `<div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                            <div class="text-[11px] uppercase tracking-widest text-gray-400 font-bold">Biggest Steal</div>
-                            <div class="font-display text-2xl mt-1 leading-tight text-[#001E62]">Nobody yet</div>
-                            <div class="text-sm text-gray-500 font-semibold">No pick has beaten its seed</div>
-                        </div>`;
-                    }
-                    const p = steal.player;
-                    const seedTxt = seedOf(p) === null ? 'unseeded' : 'seed ' + seedOf(p);
-                    return `<div class="bg-white border-2 border-green-200 rounded-2xl p-5 shadow-sm">
-                        <div class="text-[11px] uppercase tracking-widest text-green-600 font-bold">Biggest Steal</div>
-                        <div class="font-display text-xl mt-1 leading-tight text-[#001E62] truncate" title="${escapeHtml(p.name)}">${escapeHtml((p.flag || '🏳️') + ' ' + p.name)}</div>
-                        <div class="text-sm text-gray-500 font-semibold tabnum">
-                            <span class="text-green-600 font-bold">▲${steal.delta}</span> vs ${escapeHtml(seedTxt)}${steal.owners.length ? ' · ' + escapeHtml(steal.owners.join(', ')) : ''}
-                        </div>
-                    </div>`;
-                })()}
+                ${renderExtremeSeedCard('Biggest Steal', biggestSteal(), true)}
+                ${renderExtremeSeedCard('Biggest Flop', biggestFlop(), false)}
             `;
 
             const medals = ['🥇', '🥈', '🥉'];
@@ -943,7 +930,7 @@
 
             container.innerHTML = localTeams.map(team => {
                 const teamTotal = team.players.reduce((sum, p) => sum + calculatePoints(p.wins), 0);
-                const ceiling = teamCeiling(team);
+                const projected = teamProjected(team);
 
                 const sortedPlayers = [...team.players].sort((a, b) => {
                     const ta = TIER_ORDER[a.tier] ?? 99;
@@ -961,7 +948,7 @@
                             </h3>
                             <div class="text-right shrink-0">
                                 <span class="font-display text-lg text-[#001E62] tabnum">${teamTotal} pts</span>
-                                <span class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 tabnum">Ceiling ${ceiling}</span>
+                                <span class="block text-[10px] font-bold uppercase tracking-wider text-gray-400 tabnum" title="Chalk projection: ${projected} pts if the rest of the draw goes to seeding">Projected ${projected}</span>
                             </div>
                         </div>
 
@@ -997,7 +984,7 @@
                         <div id="chips-team-${team.id}" class="flex flex-wrap gap-1.5 mt-3">
                             ${sortedPlayers.length === 0 ? '<div class="text-xs text-gray-400 italic py-1">No players drafted yet.</div>' : ''}
                             ${sortedPlayers.map(p => `
-                                <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-lg border ${p.is_out ? 'bg-gray-100 border-gray-200 text-gray-400 line-through' : (p.is_through ? 'bg-[#E8F0FC] border-[#B9D2F2] text-[#001E62]' : 'bg-white border-[#DCE7F7] text-[#001E62]')}"
+                                <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-lg border ${p.is_out ? 'bg-gray-100 border-gray-200 text-gray-400 line-through' : (p.is_through ? 'bg-green-50 border-green-200 text-green-800' : 'bg-white border-[#DCE7F7] text-[#001E62]')}"
                                       title="${escapeHtml(p.gender + ' · ' + p.tier + ' · ' + (seedOf(p) === null ? 'unseeded' : 'seed ' + seedOf(p)) + ' · ' + p.wins + (p.wins === 1 ? ' win' : ' wins'))}">
                                     ${seedBadge(p)}
                                     <span>${escapeHtml(p.flag || '🏳️')}</span>
@@ -1025,11 +1012,11 @@
                                     winCountStyleClass = 'text-gray-500';
                                     winPointsStyleClass = 'text-gray-400';
                                 } else if (p.is_through) {
-                                    cardStyleClass = 'bg-[#E8F0FC] border-[#B9D2F2]';
-                                    nameStyleClass = 'text-[#001E62] font-extrabold';
-                                    textSubStyleClass = 'text-[#1560BD]';
-                                    winCountStyleClass = 'text-[#001E62]';
-                                    winPointsStyleClass = 'text-[#1560BD]';
+                                    cardStyleClass = 'bg-green-50 border-green-200';
+                                    nameStyleClass = 'text-green-900 font-extrabold';
+                                    textSubStyleClass = 'text-green-700';
+                                    winCountStyleClass = 'text-green-900';
+                                    winPointsStyleClass = 'text-green-700';
                                 }
 
                                 return `
@@ -1041,7 +1028,7 @@
                                                 <span>${escapeHtml(p.name)}</span>
                                                 ${p.wins >= MAX_WINS ? '<span class="text-[10px] bg-[#F2E63C] text-[#001E62] px-1.5 py-0.5 rounded font-black ml-1">CHAMPION 🏆</span>' : ''}
                                                 ${p.is_out ? '<span class="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-black ml-1">OUT</span>' : ''}
-                                                ${(!p.is_out && p.is_through) ? '<span class="text-[10px] bg-[#001E62] text-white px-1.5 py-0.5 rounded font-black ml-1">THROUGH</span>' : ''}
+                                                ${(!p.is_out && p.is_through) ? '<span class="text-[10px] bg-green-600 text-white px-1.5 py-0.5 rounded font-black ml-1">THROUGH</span>' : ''}
                                             </div>
                                             <div class="text-xs font-semibold mt-1 flex gap-1.5 items-center ${textSubStyleClass}">
                                                 <span class="px-1.5 py-0.5 rounded text-[10px] tracking-wider uppercase font-extrabold ${p.gender === 'Men' ? 'bg-[#E8F0FC] text-[#1560BD] border border-[#B9D2F2]' : 'bg-[#FCF7DA] text-[#8A7400] border border-[#EFE39B]'}">${escapeHtml(p.gender)}</span>
